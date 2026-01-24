@@ -194,8 +194,7 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
           ),
           child: TextField(
             controller: _volumeController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: GoogleFonts.poppins(
               fontSize: 28,
               fontWeight: FontWeight.w700,
@@ -333,10 +332,12 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
           physics: const ClampingScrollPhysics(),
           child: Row(
             children: _fluidTypes
-                .map((type) => Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: _buildFluidTypeButton(type),
-                    ))
+                .map(
+                  (type) => Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: _buildFluidTypeButton(type),
+                  ),
+                )
                 .toList(),
           ),
         ),

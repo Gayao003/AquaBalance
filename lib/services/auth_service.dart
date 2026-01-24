@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'hybrid_sync_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -10,6 +11,27 @@ class AuthService {
 
   // Stream of auth state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Validate password (8+ chars with at least one number)
+  static String? validatePassword(String password) {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number';
+    }
+    return null;
+  }
+
+  // Check if email is already registered
+  Future<bool> isEmailRegistered(String email) async {
+    try {
+      final methods = await _auth.fetchSignInMethodsForEmail(email);
+      return methods.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Register with email and password
   Future<UserCredential?> registerWithEmail({
@@ -28,6 +50,11 @@ class AuthService {
       // Send verification email
       await userCredential.user?.sendEmailVerification();
 
+      // Sync data from Firebase (initialize for new user)
+      if (userCredential.user != null) {
+        await HybridSyncService().syncFromFirebase(userCredential.user!.uid);
+      }
+
       return userCredential;
     } on FirebaseAuthException {
       rethrow;
@@ -40,10 +67,17 @@ class AuthService {
     required String password,
   }) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Sync data from Firebase for multi-device support
+      if (userCredential.user != null) {
+        await HybridSyncService().syncFromFirebase(userCredential.user!.uid);
+      }
+
+      return userCredential;
     } on FirebaseAuthException {
       rethrow;
     }
@@ -62,7 +96,23 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      return await _auth.signInWithCredential(credential);
+      final userCredential = await _auth.signInWithCredential(credential);
+
+      // Sync data from Firebase for multi-device support
+      if (userCredential.user != null) {
+        await HybridSyncService().syncFromFirebase(userCredential.user!.uid);
+      }
+
+      return userCredential;
+    } on FirebaseAuthException {
+      rethrow;
+    }
+  }
+
+  // Send password reset email
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException {
       rethrow;
     }

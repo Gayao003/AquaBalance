@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
-import '../widgets/registration_success_modal.dart';
 
 class RegisterPage extends StatefulWidget {
   final VoidCallback onNavigateToLogin;
@@ -22,10 +20,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _isLoading = false;
   bool _agreedToTerms = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   String? _errorMessage;
-  String? _emailErrorMessage;
 
   @override
   void dispose() {
@@ -37,22 +32,6 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  Future<void> _validateEmail() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) return;
-
-    final isRegistered = await _authService.isEmailRegistered(email);
-    if (mounted) {
-      setState(() {
-        if (isRegistered) {
-          _emailErrorMessage = 'Email already registered';
-        } else {
-          _emailErrorMessage = null;
-        }
-      });
-    }
-  }
-
   bool _validateInputs() {
     if (_nameController.text.isEmpty ||
         _emailController.text.isEmpty ||
@@ -62,21 +41,13 @@ class _RegisterPageState extends State<RegisterPage> {
       return false;
     }
 
-    if (_emailErrorMessage != null) {
-      setState(() => _errorMessage = _emailErrorMessage);
-      return false;
-    }
-
     if (_passwordController.text != _confirmPasswordController.text) {
       setState(() => _errorMessage = 'Passwords do not match');
       return false;
     }
 
-    final passwordError = AuthService.validatePassword(
-      _passwordController.text,
-    );
-    if (passwordError != null) {
-      setState(() => _errorMessage = passwordError);
+    if (_passwordController.text.length < 6) {
+      setState(() => _errorMessage = 'Password must be at least 6 characters');
       return false;
     }
 
@@ -105,17 +76,15 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => RegistrationSuccessModal(
-            email: _emailController.text.trim(),
-            onContinue: () {
-              Navigator.pop(context);
-              widget.onNavigateToLogin();
-            },
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Registration successful! Check your email to verify your account.',
+            ),
+            backgroundColor: Colors.green,
           ),
         );
+        widget.onNavigateToLogin();
       }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
@@ -132,19 +101,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       await _authService.signInWithGoogle();
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => RegistrationSuccessModal(
-            email: _authService.currentUser?.email ?? 'unknown',
-            onContinue: () {
-              Navigator.pop(context);
-              widget.onNavigateToLogin();
-            },
-          ),
-        );
-      }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -156,20 +112,17 @@ class _RegisterPageState extends State<RegisterPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          'Privacy Policy',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Privacy Policy'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'AquaBalance Privacy Policy\n',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Text(
+              const Text(
                 '1. Data Collection\n'
                 'We collect information you provide directly to us, such as name, email, age, and water intake data.\n\n'
                 '2. Data Usage\n'
@@ -182,7 +135,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 'You have the right to access, modify, or delete your personal data at any time.\n\n'
                 '6. Contact\n'
                 'For privacy concerns, contact us at privacy@aquabalance.com',
-                style: GoogleFonts.poppins(fontSize: 13),
               ),
             ],
           ),
@@ -190,10 +142,7 @@ class _RegisterPageState extends State<RegisterPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Close',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -203,20 +152,14 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Create Account',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Create Account'), elevation: 0),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
 
               // Logo
               SizedBox(
@@ -249,16 +192,13 @@ class _RegisterPageState extends State<RegisterPage> {
               const SizedBox(height: 24),
 
               // Title
-              Text(
+              const Text(
                 'Create Your AquaBalance Account',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               // Error message
               if (_errorMessage != null)
@@ -268,14 +208,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   decoration: BoxDecoration(
                     color: Colors.red.shade100,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade300),
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: GoogleFonts.poppins(
-                      color: Colors.red.shade900,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Colors.red.shade900),
                   ),
                 ),
 
@@ -311,19 +247,12 @@ class _RegisterPageState extends State<RegisterPage> {
               // Email field
               TextField(
                 controller: _emailController,
-                onChanged: (value) => _validateEmail(),
                 decoration: InputDecoration(
                   hintText: 'Email',
                   prefixIcon: const Icon(Icons.email),
-                  errorText: _emailErrorMessage,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  suffixIcon:
-                      _emailErrorMessage == null &&
-                          _emailController.text.isNotEmpty
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : null,
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
@@ -334,23 +263,13 @@ class _RegisterPageState extends State<RegisterPage> {
               TextField(
                 controller: _passwordController,
                 decoration: InputDecoration(
-                  hintText: 'Password (min. 8 chars, 1 number)',
+                  hintText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() => _obscurePassword = !_obscurePassword);
-                    },
-                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                obscureText: _obscurePassword,
+                obscureText: true,
               ),
 
               const SizedBox(height: 16),
@@ -361,24 +280,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 decoration: InputDecoration(
                   hintText: 'Confirm Password',
                   prefixIcon: const Icon(Icons.lock),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(
-                        () =>
-                            _obscureConfirmPassword = !_obscureConfirmPassword,
-                      );
-                    },
-                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                obscureText: _obscureConfirmPassword,
+                obscureText: true,
               ),
 
               const SizedBox(height: 24),
@@ -395,12 +301,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   Expanded(
                     child: GestureDetector(
                       onTap: _showPrivacyPolicy,
-                      child: Text(
+                      child: const Text(
                         'I agree to the Privacy Policy',
-                        style: GoogleFonts.poppins(
+                        style: TextStyle(
                           color: Colors.blue,
                           decoration: TextDecoration.underline,
-                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -431,9 +336,9 @@ class _RegisterPageState extends State<RegisterPage> {
                             strokeWidth: 2,
                           ),
                         )
-                      : Text(
+                      : const Text(
                           'Create Account',
-                          style: GoogleFonts.poppins(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -452,10 +357,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'OR',
-                      style: GoogleFonts.poppins(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ),
                   Expanded(child: Divider(color: Colors.grey.shade300)),
@@ -469,10 +371,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _handleGoogleRegister,
-                  icon: Text('🔵', style: GoogleFonts.poppins(fontSize: 20)),
-                  label: Text(
+                  icon: const Icon(Icons.g_mobiledata, color: Colors.black),
+                  label: const Text(
                     'Sign up with Google',
-                    style: GoogleFonts.poppins(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
@@ -495,25 +397,21 @@ class _RegisterPageState extends State<RegisterPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Already have an account? ',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
+                  const Text('Already have an account? '),
                   GestureDetector(
                     onTap: widget.onNavigateToLogin,
-                    child: Text(
+                    child: const Text(
                       'Sign in',
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         color: Colors.blue,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
                       ),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 60),
             ],
           ),
         ),

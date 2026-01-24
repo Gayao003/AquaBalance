@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'screens/login_page.dart';
 import 'screens/register_page.dart';
-import 'screens/main_app_page.dart';
-import 'services/auth_service.dart';
-import 'services/hybrid_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,8 +10,6 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    // Initialize offline-first hybrid sync service
-    await HybridSyncService().initialize();
   } catch (e) {
     print('Firebase initialization error: $e');
   }
@@ -32,35 +26,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-      home: const AuthWrapper(),
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: AuthService().authStateChanges,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasData) {
-          // User is logged in
-          return const MainAppPage();
-        }
-
-        // User is not logged in
-        return const AuthScreen();
-      },
+      home: const AuthScreen(),
     );
   }
 }

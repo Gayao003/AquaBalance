@@ -6,8 +6,9 @@ import '../models/io_models.dart';
 import '../theme/app_theme.dart';
 import 'intake_recording_page.dart';
 import 'shift_summary_page.dart';
-import 'trends_page.dart';
-import 'settings_page.dart';
+import 'trends_page_redesign.dart';
+import 'home_page_redesign.dart';
+import 'settings_page_redesign.dart';
 
 class MainAppPage extends StatefulWidget {
   const MainAppPage({super.key});
@@ -24,10 +25,10 @@ class _MainAppPageState extends State<MainAppPage> {
   void initState() {
     super.initState();
     _pages = [
-      const HomePage(),
+      const HomePageRedesign(),
       const ShiftSummaryPage(),
-      const TrendsPage(),
-      const SettingsPage(),
+      const TrendsPageRedesign(),
+      const SettingsPageRedesign(),
     ];
   }
 
@@ -86,10 +87,10 @@ class _MainAppPageState extends State<MainAppPage> {
   void _refreshPages() {
     setState(() {
       _pages = [
-        const HomePage(),
+        const HomePageRedesign(),
         const ShiftSummaryPage(),
-        const TrendsPage(),
-        const SettingsPage(),
+        const TrendsPageRedesign(),
+        const SettingsPageRedesign(),
       ];
     });
   }

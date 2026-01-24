@@ -77,7 +77,7 @@ class _ForgotPasswordPageNewState extends State<ForgotPasswordPageNew> {
       ),
       body: Stack(
         children: [
-          // Fixed decorative circles (behind everything)
+          // Background circles (fixed, non-scrolling)
           Positioned(
             top: -100,
             right: -50,
@@ -106,7 +106,7 @@ class _ForgotPasswordPageNewState extends State<ForgotPasswordPageNew> {
               ),
             ),
           ),
-          // Scrollable content
+          // Scrollable content in foreground
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

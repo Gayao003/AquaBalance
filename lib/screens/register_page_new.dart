@@ -148,7 +148,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
       ),
       body: Stack(
         children: [
-          // Fixed decorative circles (behind everything)
+          // Background circles (fixed, non-scrolling)
           Positioned(
             top: -100,
             left: -50,
@@ -177,7 +177,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
               ),
             ),
           ),
-          // Scrollable content
+          // Scrollable content in foreground
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

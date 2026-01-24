@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/hybrid_sync_service.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 
 class IntakeRecordingPage extends StatefulWidget {
   final VoidCallback onSaved;
@@ -21,6 +22,7 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
   String _selectedFluidType = 'Water';
   bool _isLoading = false;
   String? _errorMessage;
+  double _selectedVolume = 250;
 
   final List<String> _fluidTypes = [
     'Water',
@@ -28,9 +30,19 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
     'Milk',
     'Tea/Coffee',
     'Soup',
-    'Ice Cream',
+    'Sports Drink',
     'Other',
   ];
+
+  final Map<String, IconData> _fluidTypeIcons = {
+    'Water': Icons.water_drop,
+    'Juice': Icons.local_drink,
+    'Milk': Icons.grain,
+    'Tea/Coffee': Icons.local_cafe,
+    'Soup': Icons.restaurant_menu,
+    'Sports Drink': Icons.sports_volleyball,
+    'Other': Icons.more_horiz,
+  };
 
   @override
   void dispose() {
@@ -40,219 +52,330 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
   }
 
   Future<void> _handleSaveIntake() async {
-    if (_volumeController.text.isEmpty) {
-      setState(() => _errorMessage = 'Please enter volume');
+    if (_volumeController.text.isEmpty && _selectedVolume == 0) {
+      setState(() => _errorMessage = 'Please enter or select a volume');
       return;
     }
 
-    final volume = double.tryParse(_volumeController.text);
+    final volume = _volumeController.text.isNotEmpty
+        ? double.tryParse(_volumeController.text)
+        : _selectedVolume;
+
     if (volume == null || volume <= 0) {
       setState(() => _errorMessage = 'Please enter valid volume');
       return;
     }
 
     setState(() {
-      _isLoading = true;
       _errorMessage = null;
+      _isLoading = true;
     });
 
     try {
+      final userId = _authService.currentUser?.uid ?? '';
+
       await _hybridSyncService.addIntakeEntry(
-        userId: _authService.currentUser?.uid ?? '',
+        userId: userId,
         volume: volume,
         fluidType: _selectedFluidType,
         notes: _notesController.text,
       );
 
       if (mounted) {
+        widget.onSaved();
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Intake recorded: ${volume.toStringAsFixed(0)} ml',
-              style: GoogleFonts.poppins(),
+              '✓ ${volume.toStringAsFixed(0)} ml of ${_selectedFluidType} logged',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
           ),
         );
-        widget.onSaved();
-        Navigator.of(context).pop();
       }
     } catch (e) {
-      setState(() => _errorMessage = 'Error: $e');
+      if (mounted) {
+        setState(() => _errorMessage = 'Error saving intake: $e');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 1,
         title: Text(
-          'Record Intake',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          'Log Water Intake',
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
         ),
-        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.primary),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        physics: const ClampingScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildVolumeInputSection(),
+              const SizedBox(height: 32),
+              _buildQuickSelectButtons(),
+              const SizedBox(height: 32),
+              _buildFluidTypeSelector(),
+              const SizedBox(height: 32),
+              _buildNotesSection(),
+              const SizedBox(height: 32),
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.red,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              _buildSubmitButton(),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVolumeInputSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Volume (ml)',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border, width: 2),
+          ),
+          child: TextField(
+            controller: _volumeController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            style: GoogleFonts.poppins(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              hintText: '0',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 28,
+                color: AppColors.textTertiary,
+              ),
+              border: InputBorder.none,
+              suffixIcon: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Center(
+                  child: Text(
+                    'ml',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            onChanged: (value) {
+              setState(() {});
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickSelectButtons() {
+    final amounts = [250, 500, 750, 1000];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Select',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        GridView.count(
+          crossAxisCount: 4,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: amounts
+              .map((amount) => _buildQuickButton(amount.toDouble()))
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickButton(double amount) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _volumeController.text = amount.toStringAsFixed(0);
+          _selectedVolume = amount;
+        });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: _volumeController.text == amount.toStringAsFixed(0)
+              ? AppColors.primary
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _volumeController.text == amount.toStringAsFixed(0)
+                ? AppColors.primary
+                : AppColors.border,
+            width: 2,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${amount.toStringAsFixed(0)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _volumeController.text == amount.toStringAsFixed(0)
+                      ? Colors.white
+                      : AppColors.textPrimary,
+                ),
+              ),
+              Text(
+                'ml',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: _volumeController.text == amount.toStringAsFixed(0)
+                      ? Colors.white70
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFluidTypeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fluid Type',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(),
+          child: Row(
+            children: _fluidTypes
+                .map((type) => Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: _buildFluidTypeButton(type),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFluidTypeButton(String type) {
+    final isSelected = _selectedFluidType == type;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedFluidType = type);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: 2,
+          ),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Error message
-            if (_errorMessage != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade300),
-                ),
-                child: Text(
-                  _errorMessage!,
-                  style: GoogleFonts.poppins(
-                    color: Colors.red.shade900,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-
-            // Fluid Type
+            Icon(
+              _fluidTypeIcons[type] ?? Icons.local_drink,
+              color: isSelected ? Colors.white : AppColors.primary,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
             Text(
-              'Type of Fluid',
+              type,
               style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButton<String>(
-                value: _selectedFluidType,
-                isExpanded: true,
-                underline: const SizedBox(),
-                items: _fluidTypes.map((type) {
-                  return DropdownMenuItem(value: type, child: Text(type));
-                }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedFluidType = value ?? 'Water');
-                },
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Volume
-            Text(
-              'Volume (ml)',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _volumeController,
-              decoration: InputDecoration(
-                hintText: 'Enter volume in ml',
-                prefixIcon: const Icon(Icons.water_drop),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 12,
-                ),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-
-            const SizedBox(height: 12),
-
-            // Quick Add buttons
-            Text(
-              'Quick Add',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildQuickAddButton(250),
-                  const SizedBox(width: 8),
-                  _buildQuickAddButton(500),
-                  const SizedBox(width: 8),
-                  _buildQuickAddButton(750),
-                  const SizedBox(width: 8),
-                  _buildQuickAddButton(1000),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Notes
-            Text(
-              'Notes (Optional)',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _notesController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Add any additional notes',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.all(12),
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Save button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleSaveIntake,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        'Save Intake',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
               ),
             ),
           ],
@@ -261,26 +384,80 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
     );
   }
 
-  Widget _buildQuickAddButton(int volume) {
-    return GestureDetector(
-      onTap: () {
-        _volumeController.text = volume.toString();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.blue.shade100,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.blue.shade300),
-        ),
-        child: Text(
-          '${volume}ml',
+  Widget _buildNotesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Notes (Optional)',
           style: GoogleFonts.poppins(
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.blue.shade900,
+            color: AppColors.textSecondary,
           ),
         ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: TextField(
+            controller: _notesController,
+            maxLines: 3,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Add any notes...',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppColors.textTertiary,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.all(14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleSaveIntake,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          elevation: 4,
+        ),
+        child: _isLoading
+            ? SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.white.withOpacity(0.8),
+                  ),
+                ),
+              )
+            : Text(
+                'Log Intake',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }

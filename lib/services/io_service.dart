@@ -99,15 +99,6 @@ class IOService {
       return null;
     }
 
-    // Calculate shift data with estimated output
-    final morningIntake = intakeEntries
-        .where((e) => e.shift == 'morning')
-        .toList();
-    final afternoonIntake = intakeEntries
-        .where((e) => e.shift == 'afternoon')
-        .toList();
-    final nightIntake = intakeEntries.where((e) => e.shift == 'night').toList();
-
     // Create summary with estimated output
     return DailyFluidSummary.withEstimatedOutput(
       date: date,

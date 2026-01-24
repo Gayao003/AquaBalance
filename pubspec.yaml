@@ -66,6 +66,10 @@ dependencies:
   # UUID generation
   uuid: ^4.0.0
 
+  # Local notifications and alarms
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

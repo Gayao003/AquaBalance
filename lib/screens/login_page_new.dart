@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Fixed decorative circles (truly behind everything)
+          // Background circles (fixed, non-scrolling)
           Positioned(
             top: -100,
             right: -50,
@@ -116,10 +116,11 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-          // Main scrollable content
+          // Scrollable content in foreground
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              physics: const ClampingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

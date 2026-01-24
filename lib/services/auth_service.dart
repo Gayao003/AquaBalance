@@ -116,9 +116,21 @@ class AuthService {
 
       final userCredential = await _auth.signInWithCredential(credential);
 
-      // Sync data from Firebase for multi-device support
+      // Save user profile to Firebase
       if (userCredential.user != null) {
-        await HybridSyncService().syncFromFirebase(userCredential.user!.uid);
+        final user = userCredential.user!;
+        final userProfile = UserProfile(
+          userId: user.uid,
+          email: user.email ?? '',
+          name: user.displayName ?? 'User',
+          age: 35, // Default age
+          createdAt: DateTime.now(),
+          lastUpdated: DateTime.now(),
+        );
+        await UserService().saveUserProfile(userProfile);
+
+        // Sync data from Firebase for multi-device support
+        await HybridSyncService().syncFromFirebase(user.uid);
       }
 
       return userCredential;

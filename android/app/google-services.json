@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "249696762983",
+    "project_id": "aquabalance-9f3b5",
+    "storage_bucket": "aquabalance-9f3b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:249696762983:android:83ba8b161701376966e8c2",
+        "android_client_info": {
+          "package_name": "com.watertracking.aquabalance"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "249696762983-v7ocgvhuv7km7jlkjkald8jdvc69l1fb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.watertracking.aquabalance",
+            "certificate_hash": "f8c441705454e5f88c177873a84f0bf3fbe75f50"
+          }
+        },
+        {
+          "client_id": "249696762983-d1eoli92k2mrmg2ma8i5ici9r9ejnse2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoYHFDnzDxsbi7hDmdKDrUaWHLqGP9zBY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "249696762983-d1eoli92k2mrmg2ma8i5ici9r9ejnse2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "249696762983-ve0k1k30iu2chnpj6p8l1a9bqdagang2.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.watertracking.aquabalance"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
-import 'forgot_password_page.dart';
+import 'forgot_password_page_new.dart';
 import 'dashboard_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -236,7 +236,7 @@ class _LoginPageState extends State<LoginPage> {
                     Navigator.of(context).push(
                       PageRouteBuilder(
                         pageBuilder: (context, animation, secondaryAnimation) =>
-                            ForgotPasswordPage(
+                            ForgotPasswordPageNew(
                               onNavigateBack: () => Navigator.of(context).pop(),
                             ),
                         transitionsBuilder:

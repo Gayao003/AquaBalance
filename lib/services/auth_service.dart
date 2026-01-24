@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'hybrid_sync_service.dart';
+import 'user_service.dart';
+import '../models/user_profile.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -49,6 +51,19 @@ class AuthService {
 
       // Send verification email
       await userCredential.user?.sendEmailVerification();
+
+      // Save user profile to Firestore
+      if (userCredential.user != null) {
+        final profile = UserProfile(
+          userId: userCredential.user!.uid,
+          email: email,
+          name: name,
+          age: int.tryParse(age) ?? 0,
+          createdAt: DateTime.now(),
+          lastUpdated: DateTime.now(),
+        );
+        await UserService().saveUserProfile(profile);
+      }
 
       // Sync data from Firebase (initialize for new user)
       if (userCredential.user != null) {

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
-import 'screens/login_page.dart';
-import 'screens/register_page.dart';
+import 'screens/login_page_new.dart';
+import 'screens/register_page_new.dart';
 import 'screens/main_app_page.dart';
 import 'services/auth_service.dart';
 import 'services/hybrid_sync_service.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,11 +29,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'AquaBalance',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(),
-      ),
+      theme: AppTheme.lightTheme,
       home: const AuthWrapper(),
     );
   }
@@ -86,7 +82,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isLoginPage) {
       return LoginPage(onNavigateToRegister: _togglePage);
     } else {
-      return RegisterPage(onNavigateToLogin: _togglePage);
+      return RegisterPageNew(onNavigateToLogin: _togglePage);
     }
   }
 }

@@ -87,32 +87,36 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Fixed decorative circles (behind everything)
+          // Fixed decorative circles (truly behind everything)
           Positioned(
             top: -100,
             right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary.withOpacity(0.08),
+            child: IgnorePointer(
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary.withOpacity(0.06),
+                ),
               ),
             ),
           ),
           Positioned(
             bottom: -80,
             left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withOpacity(0.08),
+            child: IgnorePointer(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accent.withOpacity(0.06),
+                ),
               ),
             ),
           ),
-          // Scrollable content
+          // Main scrollable content
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

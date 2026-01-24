@@ -14,10 +14,13 @@ class AuthService {
   // Stream of auth state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Validate password (8+ chars with at least one number)
+  // Validate password (8+ chars with at least one letter and one number)
   static String? validatePassword(String password) {
     if (password.length < 8) {
       return 'Password must be at least 8 characters';
+    }
+    if (!password.contains(RegExp(r'[a-zA-Z]'))) {
+      return 'Password must contain at least one letter';
     }
     if (!password.contains(RegExp(r'[0-9]'))) {
       return 'Password must contain at least one number';

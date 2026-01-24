@@ -145,69 +145,22 @@ class HybridSyncService {
         return cached;
       }
 
-      // Calculate from entries
+      // Calculate from intake entries only (output is estimated)
       final intakeEntries = _getIntakeEntriesForDate(userId, date);
-      final outputEntries = _getOutputEntriesForDate(userId, date);
 
-      if (intakeEntries.isEmpty && outputEntries.isEmpty) {
+      if (intakeEntries.isEmpty) {
         return null;
       }
 
-      double totalIntake = intakeEntries.fold(0, (sum, e) => sum + e.volume);
-      double totalOutput = outputEntries.fold(0, (sum, e) => sum + e.volume);
+      // Get user age (default to 35 if not available)
+      // TODO: This should come from user profile when implemented
+      const int userAge = 35;
 
-      // Calculate shift data
-      final morningIntake = intakeEntries
-          .where((e) => e.shift == 'morning')
-          .fold(0.0, (sum, e) => sum + e.volume);
-      final morningOutput = outputEntries
-          .where((e) => e.shift == 'morning')
-          .fold(0.0, (sum, e) => sum + e.volume);
-
-      final afternoonIntake = intakeEntries
-          .where((e) => e.shift == 'afternoon')
-          .fold(0.0, (sum, e) => sum + e.volume);
-      final afternoonOutput = outputEntries
-          .where((e) => e.shift == 'afternoon')
-          .fold(0.0, (sum, e) => sum + e.volume);
-
-      final nightIntake = intakeEntries
-          .where((e) => e.shift == 'night')
-          .fold(0.0, (sum, e) => sum + e.volume);
-      final nightOutput = outputEntries
-          .where((e) => e.shift == 'night')
-          .fold(0.0, (sum, e) => sum + e.volume);
-
-      final summary = DailyFluidSummary(
+      // Create summary with estimated output
+      final summary = DailyFluidSummary.withEstimatedOutput(
         date: date,
-        totalIntake: totalIntake,
-        totalOutput: totalOutput,
-        intakeStatus: _getStatus(totalIntake, 1500), // Default target
-        outputStatus: _getStatus(totalOutput, 1500),
         intakeEntries: intakeEntries,
-        outputEntries: outputEntries,
-        morningShift: ShiftData(
-          totalIntake: morningIntake,
-          totalOutput: morningOutput,
-          intakeCount: intakeEntries.where((e) => e.shift == 'morning').length,
-          outputCount: outputEntries.where((e) => e.shift == 'morning').length,
-        ),
-        afternoonShift: ShiftData(
-          totalIntake: afternoonIntake,
-          totalOutput: afternoonOutput,
-          intakeCount: intakeEntries
-              .where((e) => e.shift == 'afternoon')
-              .length,
-          outputCount: outputEntries
-              .where((e) => e.shift == 'afternoon')
-              .length,
-        ),
-        nightShift: ShiftData(
-          totalIntake: nightIntake,
-          totalOutput: nightOutput,
-          intakeCount: intakeEntries.where((e) => e.shift == 'night').length,
-          outputCount: outputEntries.where((e) => e.shift == 'night').length,
-        ),
+        userAge: userAge,
       );
 
       // Cache the summary
@@ -327,19 +280,6 @@ class HybridSyncService {
         .toList();
   }
 
-  /// Get output entries for a specific date from local storage
-  List<OutputEntry> _getOutputEntriesForDate(String userId, DateTime date) {
-    return _outputBox.values
-        .where(
-          (entry) =>
-              entry.userId == userId &&
-              entry.timestamp.year == date.year &&
-              entry.timestamp.month == date.month &&
-              entry.timestamp.day == date.day,
-        )
-        .toList();
-  }
-
   /// Determine shift based on hour
   String _getShift(DateTime dateTime) {
     final hour = dateTime.hour;
@@ -349,17 +289,6 @@ class HybridSyncService {
       return 'afternoon';
     } else {
       return 'night';
-    }
-  }
-
-  /// Determine fluid status
-  FluidStatus _getStatus(double value, double target) {
-    if (value >= target * 0.9 && value <= target * 1.1) {
-      return FluidStatus.within;
-    } else if (value < target * 0.9) {
-      return FluidStatus.below;
-    } else {
-      return FluidStatus.above;
     }
   }
 

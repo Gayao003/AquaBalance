@@ -124,9 +124,9 @@ class ShiftDataAdapter extends TypeAdapter<ShiftData> {
     }
     return ShiftData(
       totalIntake: fields[0] as double,
-      totalOutput: fields[1] as double,
+      estimatedOutput: fields[1] as double? ?? 0.0,
       intakeCount: fields[2] as int,
-      outputCount: fields[3] as int,
+      estimatedOutputConfidence: fields[3] as String? ?? 'Low',
     );
   }
 
@@ -136,11 +136,11 @@ class ShiftDataAdapter extends TypeAdapter<ShiftData> {
     writer.writeByte(0);
     writer.write(obj.totalIntake);
     writer.writeByte(1);
-    writer.write(obj.totalOutput);
+    writer.write(obj.estimatedOutput);
     writer.writeByte(2);
     writer.write(obj.intakeCount);
     writer.writeByte(3);
-    writer.write(obj.outputCount);
+    writer.write(obj.estimatedOutputConfidence);
   }
 
   @override
@@ -170,40 +170,43 @@ class DailyFluidSummaryAdapter extends TypeAdapter<DailyFluidSummary> {
     return DailyFluidSummary(
       date: fields[0] as DateTime,
       totalIntake: fields[1] as double,
-      totalOutput: fields[2] as double,
+      estimatedOutput: fields[2] as double? ?? 0.0,
       intakeStatus: FluidStatus.values[fields[3] as int],
-      outputStatus: FluidStatus.values[fields[4] as int],
+      estimatedOutputConfidence: fields[4] as String? ?? 'Low',
       intakeEntries: (fields[5] as List?)?.cast<IntakeEntry>() ?? [],
-      outputEntries: (fields[6] as List?)?.cast<OutputEntry>() ?? [],
+      estimationFactors: (fields[6] as List?)?.cast<String>() ?? [],
       morningShift: fields[7] as ShiftData,
       afternoonShift: fields[8] as ShiftData,
       nightShift: fields[9] as ShiftData,
+      userAge: fields[10] as int? ?? 35,
     );
   }
 
   @override
   void write(BinaryWriter writer, DailyFluidSummary obj) {
-    writer.writeByte(10);
+    writer.writeByte(11);
     writer.writeByte(0);
     writer.write(obj.date);
     writer.writeByte(1);
     writer.write(obj.totalIntake);
     writer.writeByte(2);
-    writer.write(obj.totalOutput);
+    writer.write(obj.estimatedOutput);
     writer.writeByte(3);
     writer.write(obj.intakeStatus.index);
     writer.writeByte(4);
-    writer.write(obj.outputStatus.index);
+    writer.write(obj.estimatedOutputConfidence);
     writer.writeByte(5);
     writer.write(obj.intakeEntries);
     writer.writeByte(6);
-    writer.write(obj.outputEntries);
+    writer.write(obj.estimationFactors);
     writer.writeByte(7);
     writer.write(obj.morningShift);
     writer.writeByte(8);
     writer.write(obj.afternoonShift);
     writer.writeByte(9);
     writer.write(obj.nightShift);
+    writer.writeByte(10);
+    writer.write(obj.userAge);
   }
 
   @override

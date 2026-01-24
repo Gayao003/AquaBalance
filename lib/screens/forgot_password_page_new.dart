@@ -81,24 +81,28 @@ class _ForgotPasswordPageNewState extends State<ForgotPasswordPageNew> {
           Positioned(
             top: -100,
             right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withOpacity(0.08),
+            child: IgnorePointer(
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accent.withOpacity(0.06),
+                ),
               ),
             ),
           ),
           Positioned(
             bottom: -80,
             left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryLight.withOpacity(0.08),
+            child: IgnorePointer(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryLight.withOpacity(0.06),
+                ),
               ),
             ),
           ),

@@ -119,7 +119,7 @@ class _ShiftSummaryPageState extends State<ShiftSummaryPage> {
               ),
               _buildTotalCard(
                 'Total Output',
-                '${summary.totalOutput.toStringAsFixed(0)} ml',
+                '${summary.estimatedOutput.toStringAsFixed(0)} ml (Est.)',
                 Colors.orange,
               ),
             ],
@@ -127,8 +127,8 @@ class _ShiftSummaryPageState extends State<ShiftSummaryPage> {
           const SizedBox(height: 12),
           _buildTotalCard(
             'Difference (I - O)',
-            '${(summary.totalIntake - summary.totalOutput).toStringAsFixed(0)} ml',
-            _getDifferenceColor(summary.totalIntake - summary.totalOutput),
+            '${(summary.totalIntake - summary.estimatedOutput).toStringAsFixed(0)} ml',
+            _getDifferenceColor(summary.totalIntake - summary.estimatedOutput),
           ),
         ],
       ),
@@ -244,9 +244,10 @@ class _ShiftSummaryPageState extends State<ShiftSummaryPage> {
           // Output details
           _buildShiftMetricCard(
             'Output',
-            shiftData.totalOutput,
+            shiftData.estimatedOutput,
             Colors.orange,
-            shiftData.outputCount,
+            shiftData
+                .intakeCount, // Show intake count since output count doesn't exist
           ),
           const SizedBox(height: 16),
 
@@ -306,7 +307,7 @@ class _ShiftSummaryPageState extends State<ShiftSummaryPage> {
 
   Widget _buildStatusIndicator(DailyFluidSummary summary) {
     final intakeStatus = summary.intakeStatus;
-    final outputStatus = summary.outputStatus;
+    // Output status removed - using intake-based estimation instead
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,12 +330,7 @@ class _ShiftSummaryPageState extends State<ShiftSummaryPage> {
               ),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: _buildStatusBadge(
-                'Output: ${outputStatus.getStatusText()}',
-                outputStatus,
-              ),
-            ),
+            Expanded(child: _buildStatusBadge('Intake', summary.intakeStatus)),
           ],
         ),
       ],

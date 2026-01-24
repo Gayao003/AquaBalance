@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../services/hybrid_sync_service.dart';
 import '../models/io_models.dart';
+import '../theme/app_theme.dart';
 import 'intake_recording_page.dart';
-import 'output_recording_page.dart';
 import 'shift_summary_page.dart';
 import 'trends_page.dart';
 import 'settings_page.dart';
@@ -34,8 +34,12 @@ class _MainAppPageState extends State<MainAppPage> {
   void _showAddMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: AppColors.surface,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -60,18 +64,18 @@ class _MainAppPageState extends State<MainAppPage> {
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.opacity, color: Colors.orange),
-              title: Text('Record Output', style: GoogleFonts.poppins()),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        OutputRecordingPage(onSaved: _refreshPages),
-                  ),
-                );
-              },
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Output is automatically estimated based on your fluid intake',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),
@@ -115,8 +119,9 @@ class _MainAppPageState extends State<MainAppPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddMenu(context),
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add),
+        backgroundColor: AppColors.primary,
+        elevation: 8,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
@@ -222,9 +227,18 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.blue.shade400, Colors.blue.shade600],
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -247,9 +261,10 @@ class _HomePageState extends State<HomePage> {
               ),
               Container(width: 1, height: 60, color: Colors.white30),
               _buildSummaryItem(
-                'Total Output',
-                '${summary.totalOutput.toStringAsFixed(0)} ml',
+                'Est. Output',
+                '${summary.estimatedOutput.toStringAsFixed(0)} ml',
                 Colors.white,
+                subtitle: '${summary.estimatedOutputConfidence} confidence',
               ),
             ],
           ),
@@ -258,7 +273,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildSummaryItem(String label, String value, Color color) {
+  Widget _buildSummaryItem(
+    String label,
+    String value,
+    Color color, {
+    String? subtitle,
+  }) {
     return Column(
       children: [
         Text(
@@ -274,6 +294,17 @@ class _HomePageState extends State<HomePage> {
             color: color,
           ),
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              color: Colors.white60,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -328,7 +359,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(width: 12),
               Text(
-                'O: ${shift.totalOutput.toStringAsFixed(0)} ml',
+                'Est O: ${shift.estimatedOutput.toStringAsFixed(0)} ml',
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   color: Colors.orange,
@@ -343,32 +374,44 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRecentEntries(DailyFluidSummary? summary) {
-    if (summary == null ||
-        (summary.intakeEntries.isEmpty && summary.outputEntries.isEmpty)) {
+    if (summary == null || summary.intakeEntries.isEmpty) {
       return const SizedBox();
     }
 
-    final allEntries = <(String, double, String)>[];
+    final allEntries = <(String, double, String, DateTime)>[];
     for (var e in summary.intakeEntries) {
-      allEntries.add(('Intake', e.volume, e.fluidType));
+      allEntries.add(('Intake', e.volume, e.fluidType, e.timestamp));
     }
-    for (var e in summary.outputEntries) {
-      allEntries.add(('Output', e.volume, e.outputType));
-    }
+
+    // Sort by timestamp (most recent first)
+    allEntries.sort((a, b) => b.$4.compareTo(a.$4));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Recent Entries',
-          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent Intake',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (summary.estimationFactors.isNotEmpty)
+              GestureDetector(
+                onTap: () => _showEstimationDetails(context, summary),
+                child: Icon(Icons.info_outline, color: Colors.blue, size: 20),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         ...allEntries.take(5).map((entry) {
           final type = entry.$1;
           final volume = entry.$2;
           final typeLabel = entry.$3;
-          final isIntake = type == 'Intake';
+          // Timestamp available as entry.$4 if needed
 
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -405,7 +448,7 @@ class _HomePageState extends State<HomePage> {
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: isIntake ? Colors.blue : Colors.orange,
+                    color: Colors.blue, // Always blue since only intake entries
                   ),
                 ),
               ],
@@ -413,6 +456,67 @@ class _HomePageState extends State<HomePage> {
           );
         }),
       ],
+    );
+  }
+
+  void _showEstimationDetails(BuildContext context, DailyFluidSummary summary) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Output Estimation Details',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Estimated: ${summary.estimatedOutput.toStringAsFixed(0)} ml',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Confidence: ${summary.estimatedOutputConfidence}',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Factors considered:',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...summary.estimationFactors.map(
+              (factor) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• $factor',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

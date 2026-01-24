@@ -152,24 +152,28 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
           Positioned(
             top: -100,
             left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryLight.withOpacity(0.08),
+            child: IgnorePointer(
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryLight.withOpacity(0.06),
+                ),
               ),
             ),
           ),
           Positioned(
             bottom: -80,
             right: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withOpacity(0.08),
+            child: IgnorePointer(
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accent.withOpacity(0.06),
+                ),
               ),
             ),
           ),
@@ -304,7 +308,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     enabled: !_isLoading,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      hintText: 'At least 8 characters with a number',
+                      hintText: 'Password',
                       prefixIcon: const Icon(
                         Icons.lock_outlined,
                         color: AppColors.textSecondary,
@@ -331,7 +335,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     enabled: !_isLoading,
                     obscureText: _obscureConfirmPassword,
                     decoration: InputDecoration(
-                      hintText: 'Re-enter your password',
+                      hintText: 'Confirm Password',
                       prefixIcon: const Icon(
                         Icons.lock_outlined,
                         color: AppColors.textSecondary,

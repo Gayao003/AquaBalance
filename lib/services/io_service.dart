@@ -99,83 +99,20 @@ class IOService {
       return null;
     }
 
-    double totalIntake = 0;
-    double totalOutput = 0;
-
-    for (var entry in intakeEntries) {
-      totalIntake += entry.volume;
-    }
-
-    for (var entry in outputEntries) {
-      totalOutput += entry.volume;
-    }
-
-    // Calculate shift data
+    // Calculate shift data with estimated output
     final morningIntake = intakeEntries
         .where((e) => e.shift == 'morning')
         .toList();
-    final morningOutput = outputEntries
-        .where((e) => e.shift == 'morning')
-        .toList();
-    final morningShift = ShiftData(
-      totalIntake: morningIntake.fold(0, (sum, e) => sum + e.volume),
-      totalOutput: morningOutput.fold(0, (sum, e) => sum + e.volume),
-      intakeCount: morningIntake.length,
-      outputCount: morningOutput.length,
-    );
-
     final afternoonIntake = intakeEntries
         .where((e) => e.shift == 'afternoon')
         .toList();
-    final afternoonOutput = outputEntries
-        .where((e) => e.shift == 'afternoon')
-        .toList();
-    final afternoonShift = ShiftData(
-      totalIntake: afternoonIntake.fold(0, (sum, e) => sum + e.volume),
-      totalOutput: afternoonOutput.fold(0, (sum, e) => sum + e.volume),
-      intakeCount: afternoonIntake.length,
-      outputCount: afternoonOutput.length,
-    );
-
     final nightIntake = intakeEntries.where((e) => e.shift == 'night').toList();
-    final nightOutput = outputEntries.where((e) => e.shift == 'night').toList();
-    final nightShift = ShiftData(
-      totalIntake: nightIntake.fold(0, (sum, e) => sum + e.volume),
-      totalOutput: nightOutput.fold(0, (sum, e) => sum + e.volume),
-      intakeCount: nightIntake.length,
-      outputCount: nightOutput.length,
-    );
 
-    // Determine fluid status
-    final userRange =
-        _userRanges[userId] ?? UserFluidRange.defaultRanges(userId);
-    final intakeStatus =
-        totalIntake >= userRange.dailyIntakeTarget * 0.9 &&
-            totalIntake <= userRange.dailyIntakeTarget * 1.1
-        ? FluidStatus.within
-        : totalIntake < userRange.dailyIntakeTarget * 0.9
-        ? FluidStatus.below
-        : FluidStatus.above;
-
-    final outputStatus =
-        totalOutput >= userRange.dailyOutputTarget * 0.9 &&
-            totalOutput <= userRange.dailyOutputTarget * 1.1
-        ? FluidStatus.within
-        : totalOutput < userRange.dailyOutputTarget * 0.9
-        ? FluidStatus.below
-        : FluidStatus.above;
-
-    return DailyFluidSummary(
+    // Create summary with estimated output
+    return DailyFluidSummary.withEstimatedOutput(
       date: date,
-      totalIntake: totalIntake,
-      totalOutput: totalOutput,
-      intakeStatus: intakeStatus,
-      outputStatus: outputStatus,
       intakeEntries: intakeEntries,
-      outputEntries: outputEntries,
-      morningShift: morningShift,
-      afternoonShift: afternoonShift,
-      nightShift: nightShift,
+      userAge: 35, // Default age, should be from user profile
     );
   }
 

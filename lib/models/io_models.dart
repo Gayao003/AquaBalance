@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../services/output_estimation_service.dart';
 
 class IntakeEntry {
   final String id;
@@ -100,32 +101,57 @@ class OutputEntry {
 
 class ShiftData {
   final double totalIntake;
-  final double totalOutput;
+  final double estimatedOutput;
   final int intakeCount;
-  final int outputCount;
+  final String estimatedOutputConfidence;
 
   ShiftData({
     required this.totalIntake,
-    required this.totalOutput,
+    required this.estimatedOutput,
     required this.intakeCount,
-    required this.outputCount,
+    required this.estimatedOutputConfidence,
   });
+
+  /// Factory constructor to create ShiftData from intake entries
+  factory ShiftData.fromIntakeEntries(
+    String shiftName,
+    List<IntakeEntry> entries,
+    int userAge,
+  ) {
+    final totalIntake = entries.fold<double>(
+      0.0,
+      (sum, entry) => sum + entry.volume,
+    );
+
+    final estimation = OutputEstimationService.calculateEstimatedOutput(
+      intakeEntries: entries,
+      userAge: userAge,
+      timeframe: 'shift',
+    );
+
+    return ShiftData(
+      totalIntake: totalIntake,
+      estimatedOutput: estimation.estimatedVolume,
+      intakeCount: entries.length,
+      estimatedOutputConfidence: estimation.confidenceLevel,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'totalIntake': totalIntake,
-      'totalOutput': totalOutput,
+      'estimatedOutput': estimatedOutput,
       'intakeCount': intakeCount,
-      'outputCount': outputCount,
+      'estimatedOutputConfidence': estimatedOutputConfidence,
     };
   }
 
   factory ShiftData.fromJson(Map<String, dynamic> json) {
     return ShiftData(
       totalIntake: (json['totalIntake'] as num).toDouble(),
-      totalOutput: (json['totalOutput'] as num).toDouble(),
+      estimatedOutput: (json['estimatedOutput'] as num?)?.toDouble() ?? 0.0,
       intakeCount: json['intakeCount'],
-      outputCount: json['outputCount'],
+      estimatedOutputConfidence: json['estimatedOutputConfidence'] ?? 'Low',
     );
   }
 }
@@ -133,40 +159,106 @@ class ShiftData {
 class DailyFluidSummary {
   final DateTime date;
   final double totalIntake;
-  final double totalOutput;
+  final double estimatedOutput;
+  final String estimatedOutputConfidence;
+  final List<String> estimationFactors;
   final FluidStatus intakeStatus;
-  final FluidStatus outputStatus;
   final List<IntakeEntry> intakeEntries;
-  final List<OutputEntry> outputEntries;
   final ShiftData morningShift;
   final ShiftData afternoonShift;
   final ShiftData nightShift;
+  final int userAge;
 
   DailyFluidSummary({
     required this.date,
     required this.totalIntake,
-    required this.totalOutput,
+    required this.estimatedOutput,
+    required this.estimatedOutputConfidence,
+    required this.estimationFactors,
     required this.intakeStatus,
-    required this.outputStatus,
     required this.intakeEntries,
-    required this.outputEntries,
     required this.morningShift,
     required this.afternoonShift,
     required this.nightShift,
+    required this.userAge,
   });
+
+  /// Factory constructor to create summary with estimated output
+  factory DailyFluidSummary.withEstimatedOutput({
+    required DateTime date,
+    required List<IntakeEntry> intakeEntries,
+    required int userAge,
+  }) {
+    final totalIntake = intakeEntries.fold<double>(
+      0.0,
+      (sum, entry) => sum + entry.volume,
+    );
+
+    final estimation = OutputEstimationService.calculateEstimatedOutput(
+      intakeEntries: intakeEntries,
+      userAge: userAge,
+      timeframe: 'daily',
+    );
+
+    // Calculate shift data
+    final morningEntries = intakeEntries
+        .where((e) => e.shift == 'morning')
+        .toList();
+    final afternoonEntries = intakeEntries
+        .where((e) => e.shift == 'afternoon')
+        .toList();
+    final nightEntries = intakeEntries
+        .where((e) => e.shift == 'night')
+        .toList();
+
+    return DailyFluidSummary(
+      date: date,
+      totalIntake: totalIntake,
+      estimatedOutput: estimation.estimatedVolume,
+      estimatedOutputConfidence: estimation.confidenceLevel,
+      estimationFactors: estimation.factors,
+      intakeStatus: _calculateIntakeStatus(totalIntake),
+      intakeEntries: intakeEntries,
+      morningShift: ShiftData.fromIntakeEntries(
+        'morning',
+        morningEntries,
+        userAge,
+      ),
+      afternoonShift: ShiftData.fromIntakeEntries(
+        'afternoon',
+        afternoonEntries,
+        userAge,
+      ),
+      nightShift: ShiftData.fromIntakeEntries('night', nightEntries, userAge),
+      userAge: userAge,
+    );
+  }
+
+  static FluidStatus _calculateIntakeStatus(double totalIntake) {
+    const double minRecommended = 1500; // 1.5L minimum
+    const double maxRecommended = 3000; // 3L maximum
+
+    if (totalIntake < minRecommended) {
+      return FluidStatus.below;
+    } else if (totalIntake > maxRecommended) {
+      return FluidStatus.above;
+    }
+    return FluidStatus.within;
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'date': date.toIso8601String(),
       'totalIntake': totalIntake,
-      'totalOutput': totalOutput,
+      'estimatedOutput': estimatedOutput,
+      'estimatedOutputConfidence': estimatedOutputConfidence,
+      'estimationFactors': estimationFactors,
       'intakeStatus': intakeStatus.index,
-      'outputStatus': outputStatus.index,
       'intakeEntries': intakeEntries.map((e) => e.toJson()).toList(),
-      'outputEntries': outputEntries.map((e) => e.toJson()).toList(),
       'morningShift': morningShift.toJson(),
       'afternoonShift': afternoonShift.toJson(),
       'nightShift': nightShift.toJson(),
+      'userAge': userAge,
     };
   }
 
@@ -174,18 +266,19 @@ class DailyFluidSummary {
     return DailyFluidSummary(
       date: DateTime.parse(json['date']),
       totalIntake: (json['totalIntake'] as num).toDouble(),
-      totalOutput: (json['totalOutput'] as num).toDouble(),
-      intakeStatus: FluidStatus.values[json['intakeStatus']],
-      outputStatus: FluidStatus.values[json['outputStatus']],
-      intakeEntries: (json['intakeEntries'] as List)
-          .map((e) => IntakeEntry.fromJson(e))
-          .toList(),
-      outputEntries: (json['outputEntries'] as List)
-          .map((e) => OutputEntry.fromJson(e))
-          .toList(),
-      morningShift: ShiftData.fromJson(json['morningShift']),
-      afternoonShift: ShiftData.fromJson(json['afternoonShift']),
-      nightShift: ShiftData.fromJson(json['nightShift']),
+      estimatedOutput: (json['estimatedOutput'] as num?)?.toDouble() ?? 0.0,
+      estimatedOutputConfidence: json['estimatedOutputConfidence'] ?? 'Low',
+      estimationFactors: List<String>.from(json['estimationFactors'] ?? []),
+      intakeStatus: FluidStatus.values[json['intakeStatus'] ?? 0],
+      intakeEntries:
+          (json['intakeEntries'] as List?)
+              ?.map((e) => IntakeEntry.fromJson(e))
+              .toList() ??
+          [],
+      morningShift: ShiftData.fromJson(json['morningShift'] ?? {}),
+      afternoonShift: ShiftData.fromJson(json['afternoonShift'] ?? {}),
+      nightShift: ShiftData.fromJson(json['nightShift'] ?? {}),
+      userAge: json['userAge'] ?? 35,
     );
   }
 

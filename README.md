@@ -1,3 +1,6 @@
+# AquaBalance
+flutter android app for daily water intake tracking.
+
 # watertrackingapp
 
 A new Flutter project.

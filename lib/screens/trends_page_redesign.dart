@@ -4,9 +4,12 @@ import 'package:fl_chart/fl_chart.dart';
 import '../services/io_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/hydration_progress_ring.dart';
 
 class TrendsPageRedesign extends StatefulWidget {
-  const TrendsPageRedesign({super.key});
+  final VoidCallback? onOpenDrawer;
+
+  const TrendsPageRedesign({super.key, this.onOpenDrawer});
 
   @override
   State<TrendsPageRedesign> createState() => _TrendsPageRedesignState();
@@ -51,6 +54,18 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Text(
+          'Insights',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        leading: widget.onOpenDrawer == null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.onOpenDrawer,
+              ),
+      ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _trendDataFuture,
         builder: (context, snapshot) {
@@ -81,52 +96,73 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
             );
           }
 
-          return CustomScrollView(
-            slivers: [
-              // Custom App Bar
-              SliverAppBar(
-                expandedHeight: 100,
-                pinned: true,
-                backgroundColor: AppColors.surface,
-                elevation: 2,
-                flexibleSpace: FlexibleSpaceBar(
-                  title: Text(
-                    'Trends & Analytics',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  centerTitle: false,
-                  titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    // Range Selector
-                    _buildRangeSelector(),
-                    const SizedBox(height: 24),
-
-                    // Summary Stats Cards
-                    _buildSummaryStatsCards(summaries),
-                    const SizedBox(height: 24),
-
-                    // Intake Trend Chart
-                    _buildIntakeTrendChart(summaries),
-                    const SizedBox(height: 24),
-
-                    // Statistics Grid
-                    _buildStatisticsGrid(summaries),
-                    const SizedBox(height: 32),
-                  ]),
-                ),
-              ),
-            ],
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildRangeSelector(),
+                const SizedBox(height: 20),
+                _buildHydrationScoreCard(summaries),
+                const SizedBox(height: 20),
+                _buildSummaryStatsCards(summaries),
+                const SizedBox(height: 20),
+                _buildIntakeTrendChart(summaries),
+                const SizedBox(height: 20),
+                _buildStatisticsGrid(summaries),
+                const SizedBox(height: 32),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildHydrationScoreCard(List<dynamic> summaries) {
+    const goal = 2000.0;
+    final totalIntake = summaries.fold<double>(
+      0,
+      (sum, s) => sum + (s.totalIntake ?? 0),
+    );
+    final avgIntake = totalIntake / summaries.length;
+    final progress = (avgIntake / goal).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Hydration score',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: HydrationProgressRing(
+              progress: progress,
+              currentMl: avgIntake,
+              goalMl: goal,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Based on your average intake over the selected range.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }

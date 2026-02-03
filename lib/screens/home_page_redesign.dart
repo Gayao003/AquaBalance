@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
+import '../services/schedule_service.dart';
+import '../services/checkin_service.dart';
+import '../models/hydration_models.dart';
 import '../services/hybrid_sync_service.dart';
 import '../models/io_models.dart';
 import '../theme/app_theme.dart';
 import 'intake_recording_page.dart';
+import '../widgets/hydration_progress_ring.dart';
+import '../widgets/hydration_wave_card.dart';
 
 class HomePageRedesign extends StatefulWidget {
-  const HomePageRedesign({super.key});
+  final VoidCallback? onOpenDrawer;
+
+  const HomePageRedesign({super.key, this.onOpenDrawer});
 
   @override
   State<HomePageRedesign> createState() => _HomePageRedesignState();
@@ -17,6 +24,8 @@ class HomePageRedesign extends StatefulWidget {
 class _HomePageRedesignState extends State<HomePageRedesign> {
   final _hybridSyncService = HybridSyncService();
   final _authService = AuthService();
+  final _scheduleService = ScheduleService();
+  final _checkInService = CheckInService();
   late Future<DailyFluidSummary?> _summaryFuture;
 
   @override
@@ -42,10 +51,31 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
   }
 
+  void _openIntakeDialogWithVolume(double volume) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            IntakeRecordingPage(onSaved: _loadSummary, initialVolume: volume),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Text(
+          'Home',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        leading: widget.onOpenDrawer == null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.onOpenDrawer,
+              ),
+      ),
       body: FutureBuilder<DailyFluidSummary?>(
         future: _summaryFuture,
         builder: (context, snapshot) {
@@ -60,72 +90,26 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
           return RefreshIndicator(
             onRefresh: () async => _loadSummary(),
             color: AppColors.primary,
-            child: CustomScrollView(
-              slivers: [
-                // Custom App Bar
-                SliverAppBar(
-                  expandedHeight: 120,
-                  floating: true,
-                  pinned: true,
-                  backgroundColor: AppColors.surface,
-                  elevation: 2,
-                  shadowColor: AppColors.primary.withOpacity(0.1),
-                  flexibleSpace: FlexibleSpaceBar(
-                    title: Text(
-                      'AquaBalance',
-                      style: GoogleFonts.poppins(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    centerTitle: false,
-                    titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-                  ),
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.refresh,
-                          color: AppColors.primary,
-                        ),
-                        onPressed: _loadSummary,
-                      ),
-                    ),
-                  ],
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.all(16),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      // Greeting and Date
-                      _buildGreetingSection(),
-                      const SizedBox(height: 24),
-
-                      // Main intake card with visual progress
-                      _buildIntakeProgressCard(summary),
-                      const SizedBox(height: 24),
-
-                      // Estimated output card
-                      _buildEstimatedOutputCard(summary),
-                      const SizedBox(height: 24),
-
-                      // Quick action buttons
-                      _buildQuickActionButtons(),
-                      const SizedBox(height: 24),
-
-                      // Shift breakdown
-                      _buildShiftBreakdown(summary),
-                      const SizedBox(height: 24),
-
-                      // Recent entries
-                      _buildRecentEntries(summary),
-                      const SizedBox(height: 32),
-                    ]),
-                  ),
-                ),
-              ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildGreetingSection(),
+                  const SizedBox(height: 20),
+                  _buildHydrationFocus(summary),
+                  const SizedBox(height: 20),
+                  _buildTodayScheduleStatus(),
+                  const SizedBox(height: 20),
+                  _buildHydrationWave(summary),
+                  const SizedBox(height: 24),
+                  _buildEstimatedOutputCard(summary),
+                  const SizedBox(height: 24),
+                  _buildRecentEntries(summary),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           );
         },
@@ -540,18 +524,284 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
   }
 
+  Widget _buildHydrationFocus(DailyFluidSummary? summary) {
+    final totalIntake = summary?.totalIntake ?? 0.0;
+    const dailyGoal = 2000.0;
+    final progress = (totalIntake / dailyGoal).clamp(0.0, 1.0);
+    final remaining = (dailyGoal - totalIntake).clamp(0.0, dailyGoal);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Current Hydration',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: HydrationProgressRing(
+              progress: progress,
+              currentMl: totalIntake,
+              goalMl: dailyGoal,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${remaining.toStringAsFixed(0)} ml remaining',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodayScheduleStatus() {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+
+    return StreamBuilder<List<HydrationSchedule>>(
+      stream: _scheduleService.watchSchedules(userId),
+      builder: (context, scheduleSnapshot) {
+        final schedules =
+            (scheduleSnapshot.data ?? <HydrationSchedule>[])
+                .where((s) => s.enabled)
+                .toList()
+              ..sort((a, b) {
+                final aMinutes = a.hour * 60 + a.minute;
+                final bMinutes = b.hour * 60 + b.minute;
+                return aMinutes.compareTo(bMinutes);
+              });
+
+        return StreamBuilder<List<HydrationCheckIn>>(
+          stream: _checkInService.watchCheckInsInRange(
+            userId,
+            startOfDay,
+            endOfDay,
+          ),
+          builder: (context, checkInSnapshot) {
+            final checkins = checkInSnapshot.data ?? <HydrationCheckIn>[];
+            checkins.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+            final latestBySchedule = <int, HydrationCheckIn>{};
+            for (final checkin in checkins) {
+              final scheduleId = checkin.scheduleId;
+              if (scheduleId == null) continue;
+              latestBySchedule.putIfAbsent(scheduleId, () => checkin);
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Today's schedule",
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (schedules.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      'No schedules yet. Add a schedule to see today\'s plan.',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  )
+                else
+                  ...schedules.map((schedule) {
+                    final scheduledTime = DateTime(
+                      now.year,
+                      now.month,
+                      now.day,
+                      schedule.hour,
+                      schedule.minute,
+                    );
+
+                    final latest = latestBySchedule[schedule.id];
+                    String statusLabel;
+                    Color statusColor;
+
+                    if (latest != null) {
+                      if ((latest.amountMl) == 0 ||
+                          latest.beverageType.toLowerCase() == 'skipped') {
+                        statusLabel = 'Skipped';
+                        statusColor = AppColors.error;
+                      } else {
+                        statusLabel = 'Logged';
+                        statusColor = AppColors.primary;
+                      }
+                    } else if (now.isBefore(scheduledTime)) {
+                      statusLabel = 'Pending';
+                      statusColor = AppColors.textSecondary;
+                    } else {
+                      statusLabel = 'Missed';
+                      statusColor = AppColors.warning;
+                    }
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.access_time, color: AppColors.primary),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  TimeOfDay(
+                                    hour: schedule.hour,
+                                    minute: schedule.minute,
+                                  ).format(context),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  schedule.label.isEmpty
+                                      ? 'Hydration reminder'
+                                      : schedule.label,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHydrationWave(DailyFluidSummary? summary) {
+    final totalIntake = summary?.totalIntake ?? 0.0;
+    const dailyGoal = 2000.0;
+    final progress = (totalIntake / dailyGoal).clamp(0.0, 1.0);
+    return HydrationWaveCard(
+      progress: progress,
+      title: 'Hydration flow',
+      subtitle: 'Stay consistent to build your streak.',
+    );
+  }
+
+  Widget _buildEmptyStateCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.water_drop_outlined, color: AppColors.primary),
+          const SizedBox(height: 8),
+          Text(
+            'No data yet',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Log your first intake to see progress here.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRecentEntries(DailyFluidSummary? summary) {
     if (summary == null || summary.intakeEntries.isEmpty) {
       return const SizedBox();
     }
 
-    final recentEntries = summary.intakeEntries.take(5).toList();
+    final entries = [...summary.intakeEntries]
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Recent Intake',
+          'Recent entries',
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -559,90 +809,57 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
           ),
         ),
         const SizedBox(height: 12),
-        ...recentEntries.map((entry) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        ...entries
+            .take(4)
+            .map(
+              (entry) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      entry.fluidType,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    const Icon(Icons.water_drop, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.fluidType,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${entry.timestamp.hour.toString().padLeft(2, '0')}:${entry.timestamp.minute.toString().padLeft(2, '0')}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Text(
-                      DateFormat('h:mm a').format(entry.timestamp),
+                      '${entry.volume.toStringAsFixed(0)} ml',
                       style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  '${entry.volume.toStringAsFixed(0)} ml',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
+              ),
             ),
-          );
-        }),
       ],
-    );
-  }
-
-  Widget _buildEmptyStateCard() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primaryLight.withOpacity(0.2)),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(
-              Icons.water_drop_outlined,
-              size: 48,
-              color: AppColors.primary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No data yet',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Start logging your fluid intake',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.textTertiary,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

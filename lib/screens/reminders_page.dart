@@ -64,6 +64,7 @@ class _RemindersPageState extends State<RemindersPage> {
         final minute = int.parse(time[1]);
 
         await _alarmService.scheduleWaterReminder(
+          id: i + 1,
           hour: hour,
           minute: minute,
           timezoneIdentifier: 'local',

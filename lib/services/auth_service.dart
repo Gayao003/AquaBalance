@@ -61,7 +61,7 @@ class AuthService {
           userId: userCredential.user!.uid,
           email: email,
           name: name,
-          age: int.tryParse(age) ?? 0,
+          age: int.tryParse(age),
           createdAt: DateTime.now(),
           lastUpdated: DateTime.now(),
         );
@@ -123,7 +123,6 @@ class AuthService {
           userId: user.uid,
           email: user.email ?? '',
           name: user.displayName ?? 'User',
-          age: 35, // Default age
           createdAt: DateTime.now(),
           lastUpdated: DateTime.now(),
         );

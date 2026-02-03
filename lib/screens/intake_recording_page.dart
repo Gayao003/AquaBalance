@@ -6,8 +6,13 @@ import '../theme/app_theme.dart';
 
 class IntakeRecordingPage extends StatefulWidget {
   final VoidCallback onSaved;
+  final double? initialVolume;
 
-  const IntakeRecordingPage({super.key, required this.onSaved});
+  const IntakeRecordingPage({
+    super.key,
+    required this.onSaved,
+    this.initialVolume,
+  });
 
   @override
   State<IntakeRecordingPage> createState() => _IntakeRecordingPageState();
@@ -49,6 +54,14 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
     _volumeController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialVolume != null) {
+      _selectedVolume = widget.initialVolume!.clamp(0, 5000).toDouble();
+    }
   }
 
   Future<void> _handleSaveIntake() async {

@@ -10,6 +10,7 @@ class AppColors {
   static const Color accent = Color(0xFFFF6B6B); // Coral red for action/alerts
   static const Color accentLight = Color(0xFFFFE5E5); // Light coral background
   static const Color success = Color(0xFF2ECC71); // Green for success states
+  static const Color warning = Color(0xFFF59E0B); // Amber warning accent
 
   // Neutral colors
   static const Color background = Color(0xFFFAFCFE); // Very light blue-gray

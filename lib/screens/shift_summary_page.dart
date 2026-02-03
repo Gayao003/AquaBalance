@@ -5,7 +5,9 @@ import '../services/io_service.dart';
 import '../services/auth_service.dart';
 
 class ShiftSummaryPage extends StatefulWidget {
-  const ShiftSummaryPage({super.key});
+  final VoidCallback? onOpenDrawer;
+
+  const ShiftSummaryPage({super.key, this.onOpenDrawer});
 
   @override
   State<ShiftSummaryPage> createState() => _ShiftSummaryPageState();
@@ -44,6 +46,12 @@ class _ShiftSummaryPageState extends State<ShiftSummaryPage> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
+        leading: widget.onOpenDrawer == null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.onOpenDrawer,
+              ),
       ),
       body: FutureBuilder<DailyFluidSummary?>(
         future: _summaryFuture,

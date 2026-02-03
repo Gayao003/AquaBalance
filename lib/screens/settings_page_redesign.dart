@@ -5,10 +5,14 @@ import '../services/user_service.dart';
 import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
 import 'login_page_new.dart';
-import 'reminders_page.dart';
+import 'profile_page.dart';
+import 'privacy_policy_page.dart';
+import 'terms_of_service_page.dart';
 
 class SettingsPageRedesign extends StatefulWidget {
-  const SettingsPageRedesign({super.key});
+  final VoidCallback? onOpenDrawer;
+
+  const SettingsPageRedesign({super.key, this.onOpenDrawer});
 
   @override
   State<SettingsPageRedesign> createState() => _SettingsPageRedesignState();
@@ -92,6 +96,18 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Text(
+          'Settings',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        leading: widget.onOpenDrawer == null
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: widget.onOpenDrawer,
+              ),
+      ),
       body: FutureBuilder<UserProfile?>(
         future: _userProfileFuture,
         builder: (context, snapshot) {
@@ -103,101 +119,71 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
 
           final userProfile = snapshot.data;
 
-          return CustomScrollView(
-            slivers: [
-              // Custom App Bar
-              SliverAppBar(
-                expandedHeight: 120,
-                pinned: true,
-                backgroundColor: AppColors.surface,
-                elevation: 2,
-                shadowColor: AppColors.primary.withOpacity(0.1),
-                flexibleSpace: FlexibleSpaceBar(
-                  title: Text(
-                    'Settings',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  centerTitle: false,
-                  titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // User Profile Section
+                _buildProfileSection(userProfile),
+                const SizedBox(height: 32),
+
+                // Preferences Section
+                _buildSectionTitle('Preferences'),
+                const SizedBox(height: 12),
+                _buildUnitSelector(),
+                const SizedBox(height: 12),
+                _buildNotificationToggle(),
+                const SizedBox(height: 12),
+                _buildDarkModeToggle(),
+                const SizedBox(height: 32),
+
+                // App Info Section
+                _buildSectionTitle('About'),
+                const SizedBox(height: 12),
+                _buildInfoTile('Version', '1.0.0', Icons.info_outline),
+                const SizedBox(height: 8),
+                _buildInfoTile(
+                  'Privacy Policy',
+                  'Tap to view',
+                  Icons.privacy_tip_outlined,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const PrivacyPolicyPage(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    // User Profile Section
-                    _buildProfileSection(userProfile),
-                    const SizedBox(height: 32),
-
-                    // Preferences Section
-                    _buildSectionTitle('Preferences'),
-                    const SizedBox(height: 12),
-                    _buildUnitSelector(),
-                    const SizedBox(height: 12),
-                    _buildPreferenceNavTile(
-                      'Water Reminders',
-                      'Manage daily reminders',
-                      Icons.schedule,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const RemindersPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNotificationToggle(),
-                    const SizedBox(height: 12),
-                    _buildDarkModeToggle(),
-                    const SizedBox(height: 32),
-
-                    // App Info Section
-                    _buildSectionTitle('About'),
-                    const SizedBox(height: 12),
-                    _buildInfoTile('Version', '1.0.0', Icons.info_outline),
-                    const SizedBox(height: 8),
-                    _buildInfoTile(
-                      'Privacy Policy',
-                      'Tap to view',
-                      Icons.privacy_tip_outlined,
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoTile(
-                      'Terms of Service',
-                      'Tap to view',
-                      Icons.description_outlined,
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Danger Zone
-                    _buildSectionTitle('Danger Zone'),
-                    const SizedBox(height: 12),
-                    _buildDangerButton(
-                      'Sign Out',
-                      Icons.logout,
-                      onTap: _showSignOutDialog,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildDangerButton(
-                      'Delete Account',
-                      Icons.delete_forever,
-                      color: Colors.red,
-                      onTap: () {
-                        // Show delete account dialog
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                  ]),
+                const SizedBox(height: 8),
+                _buildInfoTile(
+                  'Terms of Service',
+                  'Tap to view',
+                  Icons.description_outlined,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const TermsOfServicePage(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ],
+                const SizedBox(height: 32),
+
+                // Account Actions
+                _buildSectionTitle('Account'),
+                const SizedBox(height: 12),
+                _buildActionTile(
+                  'Sign Out',
+                  'Sign out from this device',
+                  Icons.logout,
+                  onTap: _showSignOutDialog,
+                ),
+                const SizedBox(height: 16),
+                _buildDeleteAccountCard(),
+                const SizedBox(height: 32),
+              ],
+            ),
           );
         },
       ),
@@ -288,7 +274,7 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Age: ${profile.age}',
+                        'Age: ${profile.age ?? '—'}',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: Colors.white,
@@ -307,7 +293,9 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                // Navigate to edit profile
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -528,43 +516,160 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
     IconData icon, {
     VoidCallback? onTap,
   }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border, width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: AppColors.primary, size: 24),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (onTap != null)
+              Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile(
+    String label,
+    String subtitle,
+    IconData icon, {
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border, width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: AppColors.primary, size: 24),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteAccountCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.errorLight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1),
+        border: Border.all(color: AppColors.error.withOpacity(0.4), width: 1),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primary, size: 24),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    value,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+              const Icon(Icons.warning_amber_rounded, color: AppColors.error),
+              const SizedBox(width: 8),
+              Text(
+                'Delete account',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.error,
+                ),
               ),
             ],
           ),
-          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+          const SizedBox(height: 8),
+          Text(
+            'This will permanently remove your profile and history. This action cannot be undone.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                // Show delete account dialog
+              },
+              icon: const Icon(Icons.delete_forever, color: AppColors.error),
+              label: Text(
+                'Delete Account',
+                style: GoogleFonts.poppins(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.error),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

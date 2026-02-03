@@ -2,13 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../services/hybrid_sync_service.dart';
+import '../services/checkin_service.dart';
 import '../models/io_models.dart';
+import '../models/hydration_models.dart';
 import '../theme/app_theme.dart';
-import 'intake_recording_page.dart';
-import 'shift_summary_page.dart';
+import 'schedule_page.dart';
 import 'trends_page_redesign.dart';
 import 'home_page_redesign.dart';
 import 'settings_page_redesign.dart';
+import 'reminders_page.dart';
+import 'login_page_new.dart';
+import 'register_page_new.dart';
+import 'profile_page.dart';
+import 'goals_page.dart';
+import 'intake_history_page.dart';
+import 'output_history_page.dart';
+import 'help_support_page.dart';
+import 'about_page.dart';
+import 'reports_page.dart';
+import '../widgets/app_drawer.dart';
 
 class MainAppPage extends StatefulWidget {
   const MainAppPage({super.key});
@@ -20,84 +32,171 @@ class MainAppPage extends StatefulWidget {
 class _MainAppPageState extends State<MainAppPage> {
   int _selectedIndex = 0;
   late List<Widget> _pages;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _checkInService = CheckInService();
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      const HomePageRedesign(),
-      const ShiftSummaryPage(),
-      const TrendsPageRedesign(),
-      const SettingsPageRedesign(),
+      HomePageRedesign(onOpenDrawer: _openDrawer),
+      SchedulePage(onOpenDrawer: _openDrawer),
+      TrendsPageRedesign(onOpenDrawer: _openDrawer),
+      SettingsPageRedesign(onOpenDrawer: _openDrawer),
     ];
   }
 
-  void _showAddMenu(BuildContext context) {
+  void _openDrawer() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  void _openQuickCheckIn() {
+    final userId = AuthService().currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final amountController = TextEditingController(text: '250');
+    String selectedBeverage = 'Water';
+    final beverages = ['Water', 'Coffee', 'Tea', 'Juice', 'Electrolytes'];
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      backgroundColor: AppColors.surface,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Add Entry',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
               ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.water_drop, color: Colors.blue),
-              title: Text('Record Intake', style: GoogleFonts.poppins()),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        IntakeRecordingPage(onSaved: _refreshPages),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Quick check-in',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Output is automatically estimated based on your fluid intake',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
-                ),
-                textAlign: TextAlign.center,
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: beverages.map((beverage) {
+                      final selected = selectedBeverage == beverage;
+                      return ChoiceChip(
+                        label: Text(beverage),
+                        selected: selected,
+                        onSelected: (_) {
+                          setModalState(() => selectedBeverage = beverage);
+                        },
+                        selectedColor: AppColors.primary.withOpacity(0.2),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Amount (ml)',
+                      hintText: 'e.g. 250',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final amount =
+                            double.tryParse(amountController.text.trim()) ?? 0;
+                        final checkIn = HydrationCheckIn(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          userId: userId,
+                          scheduleId: null,
+                          beverageType: selectedBeverage,
+                          amountMl: amount,
+                          timestamp: DateTime.now(),
+                        );
+                        await _checkInService.addCheckIn(userId, checkIn);
+                        if (mounted) Navigator.pop(context);
+                      },
+                      child: const Text('Save check-in'),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
   void _refreshPages() {
     setState(() {
       _pages = [
-        const HomePageRedesign(),
-        const ShiftSummaryPage(),
-        const TrendsPageRedesign(),
-        const SettingsPageRedesign(),
+        HomePageRedesign(onOpenDrawer: _openDrawer),
+        SchedulePage(onOpenDrawer: _openDrawer),
+        TrendsPageRedesign(onOpenDrawer: _openDrawer),
+        SettingsPageRedesign(onOpenDrawer: _openDrawer),
       ];
     });
+  }
+
+  void _navigateToPage(Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) => page));
+  }
+
+  Future<void> _handleSignOut() async {
+    await AuthService().signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => LoginPage(
+          onNavigateToRegister: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => RegisterPageNew(
+                  onNavigateToLogin: () => Navigator.pop(context),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: AppDrawer(
+        selectedIndex: _selectedIndex,
+        onSelectIndex: (index) {
+          setState(() => _selectedIndex = index);
+        },
+        onNavigateToProfile: () => _navigateToPage(const ProfilePage()),
+        onNavigateToGoals: () => _navigateToPage(const GoalsPage()),
+        onNavigateToReminders: () => _navigateToPage(const RemindersPage()),
+        onNavigateToIntakeHistory: () =>
+            _navigateToPage(const IntakeHistoryPage()),
+        onNavigateToOutputHistory: () =>
+            _navigateToPage(const OutputHistoryPage()),
+        onNavigateToReports: () => _navigateToPage(const ReportsPage()),
+        onNavigateToHelp: () => _navigateToPage(const HelpSupportPage()),
+        onNavigateToAbout: () => _navigateToPage(const AboutPage()),
+        onSignOut: _handleSignOut,
+      ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -107,10 +206,13 @@ class _MainAppPageState extends State<MainAppPage> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.grid_3x3), label: 'Shifts'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.schedule),
+            label: 'Schedule',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.trending_up),
-            label: 'Trends',
+            label: 'Insights',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
@@ -119,10 +221,10 @@ class _MainAppPageState extends State<MainAppPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddMenu(context),
+        onPressed: _openQuickCheckIn,
         backgroundColor: AppColors.primary,
         elevation: 8,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.check, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );

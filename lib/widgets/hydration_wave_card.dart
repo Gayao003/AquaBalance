@@ -7,12 +7,16 @@ class HydrationWaveCard extends StatefulWidget {
   final double progress;
   final String title;
   final String subtitle;
+  final String currentLabel;
+  final String goalLabel;
 
   const HydrationWaveCard({
     super.key,
     required this.progress,
     required this.title,
     required this.subtitle,
+    required this.currentLabel,
+    required this.goalLabel,
   });
 
   @override
@@ -41,50 +45,105 @@ class _HydrationWaveCardState extends State<HydrationWaveCard>
   @override
   Widget build(BuildContext context) {
     final clamped = widget.progress.clamp(0.0, 1.0);
+    final percentage = (clamped * 100).toStringAsFixed(0);
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
         return Container(
-          height: 140,
+          height: 170,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppColors.primary.withOpacity(0.08),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.primary.withOpacity(0.2)),
           ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _WavePainter(
-                    progress: clamped,
-                    phase: _controller.value * 2 * pi,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Container(color: AppColors.primary.withOpacity(0.05)),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _WavePainter(
+                      progress: clamped,
+                      phase: _controller.value * 2 * pi,
+                    ),
                   ),
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.subtitle,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.currentLabel,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Goal ${widget.goalLabel}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$percentage%',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.subtitle,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -104,7 +163,7 @@ class _WavePainter extends CustomPainter {
     final baseHeight = size.height * (1 - progress);
 
     final paint = Paint()
-      ..color = AppColors.primary.withOpacity(0.15)
+      ..color = AppColors.primary.withOpacity(0.28)
       ..style = PaintingStyle.fill;
 
     final path = Path()..moveTo(0, size.height);

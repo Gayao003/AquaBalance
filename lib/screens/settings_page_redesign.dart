@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
-import '../models/user_profile.dart';
 import '../theme/app_theme.dart';
 import 'login_page_new.dart';
-import 'profile_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
 
@@ -33,10 +32,18 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
   }
 
   void _loadUserProfile() {
+    final future = _userService.getUserProfile(
+      _authService.currentUser?.uid ?? '',
+    );
     setState(() {
-      _userProfileFuture = _userService.getUserProfile(
-        _authService.currentUser?.uid ?? '',
-      );
+      _userProfileFuture = future;
+    });
+
+    future.then((profile) {
+      if (!mounted || profile == null) return;
+      if (_selectedUnit != profile.volumeUnit) {
+        setState(() => _selectedUnit = profile.volumeUnit);
+      }
     });
   }
 
@@ -124,11 +131,8 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // User Profile Section
                 _buildProfileSection(userProfile),
                 const SizedBox(height: 32),
-
-                // Preferences Section
                 _buildSectionTitle('Preferences'),
                 const SizedBox(height: 12),
                 _buildUnitSelector(),
@@ -137,8 +141,6 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
                 const SizedBox(height: 12),
                 _buildDarkModeToggle(),
                 const SizedBox(height: 32),
-
-                // App Info Section
                 _buildSectionTitle('About'),
                 const SizedBox(height: 12),
                 _buildInfoTile('Version', '1.0.0', Icons.info_outline),
@@ -169,8 +171,6 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
                   },
                 ),
                 const SizedBox(height: 32),
-
-                // Account Actions
                 _buildSectionTitle('Account'),
                 const SizedBox(height: 12),
                 _buildActionTile(
@@ -186,6 +186,17 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.poppins(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
       ),
     );
   }
@@ -212,120 +223,56 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.2),
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    profile.name.isNotEmpty
-                        ? profile.name[0].toUpperCase()
-                        : 'U',
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      profile.email,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.white70,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Age: ${profile.age ?? '—'}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          // Edit Profile Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const ProfilePage()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.2),
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: Center(
               child: Text(
-                'Edit Profile',
+                profile.name.isNotEmpty ? profile.name[0].toUpperCase() : 'U',
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
+                  fontSize: 32,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+                  color: Colors.white,
                 ),
               ),
             ),
           ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: GoogleFonts.poppins(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary,
       ),
     );
   }
@@ -390,9 +337,10 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
   Widget _buildUnitButton(String unit, bool selected) {
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedUnit = unit;
-        });
+        final userId = _authService.currentUser?.uid ?? '';
+        if (userId.isEmpty) return;
+        setState(() => _selectedUnit = unit);
+        _userService.updateUserProfile(userId, {'volumeUnit': unit});
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -519,43 +467,40 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: AppColors.primary, size: 24),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
-                    Text(
-                      value,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-            if (onTap != null)
-              Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            const Icon(Icons.chevron_right, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -571,42 +516,40 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: AppColors.primary, size: 24),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            const Icon(Icons.chevron_right, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -615,44 +558,36 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
 
   Widget _buildDeleteAccountCard() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.errorLight,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.error.withOpacity(0.4), width: 1),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: AppColors.error),
-              const SizedBox(width: 8),
-              Text(
-                'Delete account',
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.error,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Text(
-            'This will permanently remove your profile and history. This action cannot be undone.',
+            'Delete account',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'This action is permanent and cannot be undone.',
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                // Show delete account dialog
-              },
+              onPressed: () {},
               icon: const Icon(Icons.delete_forever, color: AppColors.error),
               label: Text(
                 'Delete Account',
@@ -671,92 +606,6 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDangerButton(
-    String label,
-    IconData icon, {
-    Color color = Colors.red,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-            const Spacer(),
-            Icon(Icons.chevron_right, color: color.withOpacity(0.5)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreferenceNavTile(
-    String label,
-    String subtitle,
-    IconData icon, {
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, width: 1),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: AppColors.primary, size: 24),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            Icon(Icons.chevron_right, color: AppColors.textSecondary),
-          ],
-        ),
       ),
     );
   }

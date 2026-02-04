@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/hybrid_sync_service.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import '../util/volume_utils.dart';
 
 class IntakeRecordingPage extends StatefulWidget {
   final VoidCallback onSaved;
@@ -23,11 +25,13 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
   final _notesController = TextEditingController();
   final _hybridSyncService = HybridSyncService();
   final _authService = AuthService();
+  final _userService = UserService();
 
   String _selectedFluidType = 'Water';
   bool _isLoading = false;
   String? _errorMessage;
   double _selectedVolume = 250;
+  String _volumeUnit = 'ml';
 
   final List<String> _fluidTypes = [
     'Water',
@@ -59,9 +63,47 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
   @override
   void initState() {
     super.initState();
+    _loadVolumeUnit();
     if (widget.initialVolume != null) {
-      _selectedVolume = widget.initialVolume!.clamp(0, 5000).toDouble();
+      _selectedVolume = VolumeUtils.fromMl(
+        widget.initialVolume!.clamp(0, 5000).toDouble(),
+        _volumeUnit,
+      );
     }
+  }
+
+  void _loadVolumeUnit() {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+    _userService.getUserProfile(userId).then((profile) {
+      if (!mounted || profile == null) return;
+      if (_volumeUnit == profile.volumeUnit) return;
+      final previousUnit = _volumeUnit;
+      setState(() {
+        _volumeUnit = profile.volumeUnit;
+        _selectedVolume = VolumeUtils.fromMl(
+          VolumeUtils.toMl(_selectedVolume, previousUnit),
+          _volumeUnit,
+        );
+        if (_volumeController.text.isNotEmpty) {
+          final parsed = double.tryParse(_volumeController.text);
+          if (parsed != null) {
+            final ml = VolumeUtils.toMl(parsed, previousUnit);
+            _volumeController.text = VolumeUtils.fromMl(
+              ml,
+              _volumeUnit,
+            ).toStringAsFixed(_unitDecimals());
+          }
+        }
+      });
+    });
+  }
+
+  int _unitDecimals() {
+    final normalized = VolumeUtils.normalizeUnit(_volumeUnit);
+    if (normalized == 'ml') return 0;
+    if (normalized == 'oz') return 1;
+    return 2;
   }
 
   Future<void> _handleSaveIntake() async {
@@ -87,9 +129,11 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
     try {
       final userId = _authService.currentUser?.uid ?? '';
 
+      final volumeMl = VolumeUtils.toMl(volume, _volumeUnit);
+
       await _hybridSyncService.addIntakeEntry(
         userId: userId,
-        volume: volume,
+        volume: volumeMl,
         fluidType: _selectedFluidType,
         notes: _notesController.text,
       );
@@ -100,7 +144,7 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '✓ ${volume.toStringAsFixed(0)} ml of ${_selectedFluidType} logged',
+              '✓ ${VolumeUtils.format(volumeMl, _volumeUnit)} of ${_selectedFluidType} logged',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -191,7 +235,7 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Volume (ml)',
+          'Volume (${VolumeUtils.normalizeUnit(_volumeUnit)})',
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -228,7 +272,7 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
                 padding: const EdgeInsets.only(right: 16),
                 child: Center(
                   child: Text(
-                    'ml',
+                    VolumeUtils.normalizeUnit(_volumeUnit),
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -248,7 +292,7 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
   }
 
   Widget _buildQuickSelectButtons() {
-    final amounts = [250, 500, 750, 1000];
+    final amountsMl = [250, 500, 750, 1000];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,30 +312,34 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
           mainAxisSpacing: 8,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          children: amounts
-              .map((amount) => _buildQuickButton(amount.toDouble()))
+          children: amountsMl
+              .map((amountMl) => _buildQuickButton(amountMl.toDouble()))
               .toList(),
         ),
       ],
     );
   }
 
-  Widget _buildQuickButton(double amount) {
+  Widget _buildQuickButton(double amountMl) {
+    final displayAmount = VolumeUtils.fromMl(
+      amountMl,
+      _volumeUnit,
+    ).toStringAsFixed(_unitDecimals());
     return GestureDetector(
       onTap: () {
         setState(() {
-          _volumeController.text = amount.toStringAsFixed(0);
-          _selectedVolume = amount;
+          _volumeController.text = displayAmount;
+          _selectedVolume = double.tryParse(displayAmount) ?? 0;
         });
       },
       child: Container(
         decoration: BoxDecoration(
-          color: _volumeController.text == amount.toStringAsFixed(0)
+          color: _volumeController.text == displayAmount
               ? AppColors.primary
               : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _volumeController.text == amount.toStringAsFixed(0)
+            color: _volumeController.text == displayAmount
                 ? AppColors.primary
                 : AppColors.border,
             width: 2,
@@ -302,20 +350,20 @@ class _IntakeRecordingPageState extends State<IntakeRecordingPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                '${amount.toStringAsFixed(0)}',
+                displayAmount,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: _volumeController.text == amount.toStringAsFixed(0)
+                  color: _volumeController.text == displayAmount
                       ? Colors.white
                       : AppColors.textPrimary,
                 ),
               ),
               Text(
-                'ml',
+                VolumeUtils.normalizeUnit(_volumeUnit),
                 style: GoogleFonts.poppins(
                   fontSize: 10,
-                  color: _volumeController.text == amount.toStringAsFixed(0)
+                  color: _volumeController.text == displayAmount
                       ? Colors.white70
                       : AppColors.textSecondary,
                 ),

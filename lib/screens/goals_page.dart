@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../theme/app_theme.dart';
 
 class GoalsPage extends StatefulWidget {
@@ -10,11 +12,67 @@ class GoalsPage extends StatefulWidget {
 }
 
 class _GoalsPageState extends State<GoalsPage> {
+  final _authService = AuthService();
+  final _userService = UserService();
   double _dailyGoal = 2000;
-  bool _reminderEnabled = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserGoals();
+  }
+
+  Future<void> _loadUserGoals() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    final profile = await _userService.getUserProfile(userId);
+    if (profile != null && mounted) {
+      setState(() {
+        // Default to 2000ml if not set
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _saveGoals() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    // Save daily goal to user preferences
+    await _userService.updateUserProfile(userId, {
+      'dailyGoalMl': _dailyGoal,
+      'lastUpdated': DateTime.now().toIso8601String(),
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Goals updated successfully'),
+          backgroundColor: AppColors.primary,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            'Hydration Goals',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -95,10 +153,8 @@ class _GoalsPageState extends State<GoalsPage> {
               child: Column(
                 children: [
                   SwitchListTile.adaptive(
-                    value: _reminderEnabled,
-                    onChanged: (value) {
-                      setState(() => _reminderEnabled = value);
-                    },
+                    value: false,
+                    onChanged: null,
                     title: Text(
                       'Adaptive reminders',
                       style: GoogleFonts.poppins(
@@ -107,7 +163,7 @@ class _GoalsPageState extends State<GoalsPage> {
                       ),
                     ),
                     subtitle: Text(
-                      'Nudges based on your intake pattern.',
+                      'Coming soon - Nudges based on your intake pattern.',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -122,11 +178,11 @@ class _GoalsPageState extends State<GoalsPage> {
                       color: AppColors.primary,
                     ),
                     title: Text(
-                      'Suggested schedule',
+                      'Customize in Schedule',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
-                      'Every 2 hours between 8am - 8pm',
+                      'Set your preferred hydration schedule times',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -140,11 +196,7 @@ class _GoalsPageState extends State<GoalsPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Goals updated')),
-                  );
-                },
+                onPressed: _saveGoals,
                 child: const Text('Save Goals'),
               ),
             ),

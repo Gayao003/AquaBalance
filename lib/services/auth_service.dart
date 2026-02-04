@@ -62,6 +62,7 @@ class AuthService {
           email: email,
           name: name,
           age: int.tryParse(age),
+          volumeUnit: 'ml',
           createdAt: DateTime.now(),
           lastUpdated: DateTime.now(),
         );
@@ -123,6 +124,7 @@ class AuthService {
           userId: user.uid,
           email: user.email ?? '',
           name: user.displayName ?? 'User',
+          volumeUnit: 'ml',
           createdAt: DateTime.now(),
           lastUpdated: DateTime.now(),
         );

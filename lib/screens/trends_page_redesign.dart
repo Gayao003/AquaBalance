@@ -3,8 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/io_service.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/hydration_progress_ring.dart';
+import '../util/volume_utils.dart';
 
 class TrendsPageRedesign extends StatefulWidget {
   final VoidCallback? onOpenDrawer;
@@ -18,13 +20,25 @@ class TrendsPageRedesign extends StatefulWidget {
 class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
   final _ioService = IOService();
   final _authService = AuthService();
+  final _userService = UserService();
   late Future<Map<String, dynamic>> _trendDataFuture;
   int _selectedRange = 0;
+  String _volumeUnit = 'ml';
 
   @override
   void initState() {
     super.initState();
     _loadTrendData();
+    _loadVolumeUnit();
+  }
+
+  void _loadVolumeUnit() {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+    _userService.getUserProfile(userId).then((profile) {
+      if (!mounted || profile == null) return;
+      setState(() => _volumeUnit = profile.volumeUnit);
+    });
   }
 
   void _loadTrendData() {
@@ -152,6 +166,7 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
               progress: progress,
               currentMl: avgIntake,
               goalMl: goal,
+              unit: _volumeUnit,
             ),
           ),
           const SizedBox(height: 8),
@@ -225,7 +240,7 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
             Expanded(
               child: _buildStatCard(
                 'Total',
-                '${totalIntake.toStringAsFixed(0)} ml',
+                VolumeUtils.format(totalIntake, _volumeUnit),
                 Icons.water_drop,
                 AppColors.primary,
               ),
@@ -234,7 +249,7 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
             Expanded(
               child: _buildStatCard(
                 'Average',
-                '${avgIntake.toStringAsFixed(0)} ml',
+                VolumeUtils.format(avgIntake, _volumeUnit),
                 Icons.trending_up,
                 AppColors.accent,
               ),
@@ -247,7 +262,7 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
             Expanded(
               child: _buildStatCard(
                 'Peak',
-                '${maxIntake.toStringAsFixed(0)} ml',
+                VolumeUtils.format(maxIntake, _volumeUnit),
                 Icons.show_chart,
                 Colors.orange,
               ),
@@ -413,7 +428,7 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Average: ${avgIntake.toStringAsFixed(0)} ml/day',
+                    'Average: ${VolumeUtils.format(avgIntake, _volumeUnit)}/day',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.primary,

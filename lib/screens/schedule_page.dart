@@ -6,7 +6,9 @@ import '../services/auth_service.dart';
 import '../services/checkin_service.dart';
 import '../services/schedule_service.dart';
 import '../services/template_service.dart';
+import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import '../util/volume_utils.dart';
 
 class SchedulePage extends StatefulWidget {
   final VoidCallback? onOpenDrawer;
@@ -23,7 +25,24 @@ class _SchedulePageState extends State<SchedulePage> {
   final _checkInService = CheckInService();
   final _authService = AuthService();
   final _templateService = TemplateService();
+  final _userService = UserService();
   final Set<int> _scheduledIds = {};
+  String _volumeUnit = 'ml';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVolumeUnit();
+  }
+
+  void _loadVolumeUnit() {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+    _userService.getUserProfile(userId).then((profile) {
+      if (!mounted || profile == null) return;
+      setState(() => _volumeUnit = profile.volumeUnit);
+    });
+  }
 
   Future<void> _scheduleReminder(HydrationSchedule item) async {
     if (item.endDate != null && item.endDate!.isBefore(DateTime.now())) {
@@ -37,15 +56,22 @@ class _SchedulePageState extends State<SchedulePage> {
       startDate: item.startDate,
       title: 'Time to hydrate',
       body: item.label.isEmpty
-          ? 'Log your water intake now.'
-          : '${item.label} — log your water intake.',
+          ? 'Drink ${VolumeUtils.format(item.amountMl, _volumeUnit)} of ${item.beverageType}.'
+          : '${item.label} — ${VolumeUtils.format(item.amountMl, _volumeUnit)} ${item.beverageType}.',
       payloadData: {
         'userId': item.userId,
         'scheduleId': item.id,
-        'amountMl': 250,
-        'beverageType': 'Water',
+        'amountMl': item.amountMl,
+        'beverageType': item.beverageType,
       },
     );
+  }
+
+  int _unitDecimals() {
+    final normalized = VolumeUtils.normalizeUnit(_volumeUnit);
+    if (normalized == 'ml') return 0;
+    if (normalized == 'oz') return 1;
+    return 2;
   }
 
   Future<void> _toggleSchedule(HydrationSchedule item, bool value) async {
@@ -145,6 +171,14 @@ class _SchedulePageState extends State<SchedulePage> {
     if (userId.isEmpty) return;
 
     final labelController = TextEditingController(text: existing?.label ?? '');
+    final amountController = TextEditingController(
+      text: VolumeUtils.fromMl(
+        existing?.amountMl ?? 250,
+        _volumeUnit,
+      ).toStringAsFixed(_unitDecimals()),
+    );
+    String selectedBeverage = existing?.beverageType ?? 'Water';
+    final beverages = ['Water', 'Coffee', 'Tea', 'Juice', 'Electrolytes'];
     TimeOfDay selectedTime = existing == null
         ? const TimeOfDay(hour: 9, minute: 0)
         : TimeOfDay(hour: existing.hour, minute: existing.minute);
@@ -196,6 +230,40 @@ class _SchedulePageState extends State<SchedulePage> {
                     decoration: const InputDecoration(
                       labelText: 'Label',
                       hintText: 'e.g. Morning routine',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Liquid type',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: beverages.map((beverage) {
+                      final selected = selectedBeverage == beverage;
+                      return ChoiceChip(
+                        label: Text(beverage),
+                        selected: selected,
+                        onSelected: (_) {
+                          setModalState(() => selectedBeverage = beverage);
+                        },
+                        selectedColor: AppColors.primary.withOpacity(0.2),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText:
+                          'Amount (${VolumeUtils.normalizeUnit(_volumeUnit)})',
+                      hintText: 'e.g. 250',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -279,6 +347,13 @@ class _SchedulePageState extends State<SchedulePage> {
                           return;
                         }
 
+                        final amountValue =
+                            double.tryParse(amountController.text.trim()) ?? 0;
+                        final amountMl = VolumeUtils.toMl(
+                          amountValue,
+                          _volumeUnit,
+                        );
+
                         final now = DateTime.now();
                         final schedule =
                             (existing ??
@@ -291,6 +366,8 @@ class _SchedulePageState extends State<SchedulePage> {
                                       startDate: startDate,
                                       endDate: endDate,
                                       enabled: enabled,
+                                      amountMl: amountMl,
+                                      beverageType: selectedBeverage,
                                       templateId: null,
                                       createdAt: now,
                                       updatedAt: now,
@@ -302,6 +379,8 @@ class _SchedulePageState extends State<SchedulePage> {
                                   startDate: startDate,
                                   endDate: endDate,
                                   enabled: enabled,
+                                  amountMl: amountMl,
+                                  beverageType: selectedBeverage,
                                   updatedAt: now,
                                 );
 
@@ -720,6 +799,8 @@ class _SchedulePageState extends State<SchedulePage> {
             startDate: null,
             endDate: null,
             enabled: true,
+            amountMl: 250,
+            beverageType: 'Water',
             templateId: template.id,
             createdAt: now,
             updatedAt: now,
@@ -781,6 +862,14 @@ class _SchedulePageState extends State<SchedulePage> {
                     color: AppColors.textSecondary,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  '${item.beverageType} • ${VolumeUtils.format(item.amountMl, _volumeUnit)}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -790,10 +879,8 @@ class _SchedulePageState extends State<SchedulePage> {
             activeColor: AppColors.primary,
           ),
           IconButton(
-            icon: const Icon(
-              Icons.check_circle_outline,
-              color: AppColors.primary,
-            ),
+            icon: const Icon(Icons.local_drink, color: AppColors.primary),
+            tooltip: 'Assign liquid',
             onPressed: () => _openCheckInSheet(item),
           ),
           IconButton(
@@ -921,6 +1008,8 @@ class _SchedulePageState extends State<SchedulePage> {
         (a, b) => (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute),
       );
 
+    final isBuiltIn = template.id.startsWith('builtin-');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -939,13 +1028,44 @@ class _SchedulePageState extends State<SchedulePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                template.title,
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      template.title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  if (!isBuiltIn) ...[
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit,
+                        color: AppColors.textSecondary,
+                      ),
+                      tooltip: 'Edit template',
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _openTemplateEditor(template);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.error,
+                      ),
+                      tooltip: 'Delete template',
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await _deleteTemplate(template);
+                      },
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -1114,12 +1234,192 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
+  Future<void> _deleteTemplate(HydrationTemplate template) async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete template'),
+        content: Text('Are you sure you want to delete "${template.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _templateService.deleteTemplate(userId, template.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Template "${template.title}" deleted'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _openTemplateEditor(HydrationTemplate template) {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final titleController = TextEditingController(text: template.title);
+    final times = List<HydrationTemplateTime>.from(template.times);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edit template',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Template name',
+                      hintText: 'e.g. Gym day',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: times
+                        .map(
+                          (time) => Chip(
+                            label: Text(
+                              TimeOfDay(
+                                hour: time.hour,
+                                minute: time.minute,
+                              ).format(context),
+                            ),
+                            onDeleted: () {
+                              setModalState(() => times.remove(time));
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: const TimeOfDay(hour: 9, minute: 0),
+                      );
+                      if (picked != null) {
+                        setModalState(() {
+                          times.add(
+                            HydrationTemplateTime(
+                              hour: picked.hour,
+                              minute: picked.minute,
+                            ),
+                          );
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add time'),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (titleController.text.trim().isEmpty ||
+                            times.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Add a name and at least one time.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final updatedTemplate = HydrationTemplate(
+                          id: template.id,
+                          userId: userId,
+                          title: titleController.text.trim(),
+                          times: List.from(times),
+                          createdAt: template.createdAt,
+                        );
+
+                        await _templateService.updateTemplate(
+                          userId,
+                          updatedTemplate,
+                        );
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Template "${updatedTemplate.title}" updated',
+                              ),
+                              backgroundColor: AppColors.primary,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Update template'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _openCheckInSheet(HydrationSchedule schedule) {
     final userId = _authService.currentUser?.uid ?? '';
     if (userId.isEmpty) return;
 
-    final amountController = TextEditingController(text: '250');
-    String selectedBeverage = 'Water';
+    final amountController = TextEditingController(
+      text: VolumeUtils.fromMl(
+        schedule.amountMl,
+        _volumeUnit,
+      ).toStringAsFixed(_unitDecimals()),
+    );
+    String selectedBeverage = schedule.beverageType;
     final beverages = ['Water', 'Coffee', 'Tea', 'Juice', 'Electrolytes'];
 
     showModalBottomSheet(
@@ -1143,7 +1443,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Mark as completed',
+                    'Assign liquid',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -1169,8 +1469,9 @@ class _SchedulePageState extends State<SchedulePage> {
                   TextField(
                     controller: amountController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Amount (ml)',
+                    decoration: InputDecoration(
+                      labelText:
+                          'Amount (${VolumeUtils.normalizeUnit(_volumeUnit)})',
                       hintText: 'e.g. 250',
                     ),
                   ),
@@ -1181,18 +1482,40 @@ class _SchedulePageState extends State<SchedulePage> {
                       onPressed: () async {
                         final amount =
                             double.tryParse(amountController.text.trim()) ?? 0;
-                        final checkIn = HydrationCheckIn(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          userId: userId,
-                          scheduleId: schedule.id,
+                        final amountMl = VolumeUtils.toMl(amount, _volumeUnit);
+
+                        // Update the schedule with new beverage and amount
+                        final updatedSchedule = schedule.copyWith(
                           beverageType: selectedBeverage,
-                          amountMl: amount,
-                          timestamp: DateTime.now(),
+                          amountMl: amountMl,
+                          updatedAt: DateTime.now(),
                         );
-                        await _checkInService.addCheckIn(userId, checkIn);
-                        if (mounted) Navigator.pop(context);
+
+                        await _scheduleService.upsertSchedule(
+                          userId,
+                          updatedSchedule,
+                        );
+
+                        // Update notification if schedule is enabled
+                        if (updatedSchedule.enabled) {
+                          await _alarmService.cancelReminder(schedule.id);
+                          await _scheduleReminder(updatedSchedule);
+                        }
+
+                        if (mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Schedule updated: ${VolumeUtils.format(amountMl, _volumeUnit)} of $selectedBeverage',
+                              ),
+                              backgroundColor: AppColors.primary,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
-                      child: const Text('Save check-in'),
+                      child: const Text('Update schedule'),
                     ),
                   ),
                 ],

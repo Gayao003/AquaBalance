@@ -6,6 +6,7 @@ class UserProfile {
   final DateTime? dateOfBirth;
   final double? weightKg;
   final double? heightCm;
+  final String volumeUnit;
   final DateTime createdAt;
   final DateTime lastUpdated;
 
@@ -17,6 +18,7 @@ class UserProfile {
     this.dateOfBirth,
     this.weightKg,
     this.heightCm,
+    this.volumeUnit = 'ml',
     required this.createdAt,
     required this.lastUpdated,
   });
@@ -30,6 +32,7 @@ class UserProfile {
       'dateOfBirth': dateOfBirth?.toIso8601String(),
       'weightKg': weightKg,
       'heightCm': heightCm,
+      'volumeUnit': volumeUnit,
       'createdAt': createdAt.toIso8601String(),
       'lastUpdated': lastUpdated.toIso8601String(),
     };
@@ -61,6 +64,7 @@ class UserProfile {
           : (heightValue is num
                 ? heightValue.toDouble()
                 : double.tryParse(heightValue.toString())),
+      volumeUnit: json['volumeUnit']?.toString() ?? 'ml',
       createdAt: DateTime.parse(json['createdAt']),
       lastUpdated: DateTime.parse(json['lastUpdated']),
     );

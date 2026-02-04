@@ -8,6 +8,8 @@ class HydrationSchedule {
   final DateTime? endDate;
   final bool enabled;
   final String? templateId;
+  final double amountMl;
+  final String beverageType;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -20,6 +22,8 @@ class HydrationSchedule {
     required this.startDate,
     required this.endDate,
     required this.enabled,
+    this.amountMl = 250,
+    this.beverageType = 'Water',
     required this.createdAt,
     required this.updatedAt,
     this.templateId,
@@ -36,6 +40,8 @@ class HydrationSchedule {
       'endDate': endDate?.toIso8601String(),
       'enabled': enabled,
       'templateId': templateId,
+      'amountMl': amountMl,
+      'beverageType': beverageType,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -56,6 +62,8 @@ class HydrationSchedule {
           : DateTime.tryParse(json['endDate'].toString()),
       enabled: json['enabled'] ?? true,
       templateId: json['templateId'],
+      amountMl: (json['amountMl'] as num?)?.toDouble() ?? 250,
+      beverageType: json['beverageType']?.toString() ?? 'Water',
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
@@ -69,6 +77,8 @@ class HydrationSchedule {
     DateTime? endDate,
     bool? enabled,
     String? templateId,
+    double? amountMl,
+    String? beverageType,
     DateTime? updatedAt,
   }) {
     return HydrationSchedule(
@@ -81,6 +91,8 @@ class HydrationSchedule {
       endDate: endDate ?? this.endDate,
       enabled: enabled ?? this.enabled,
       templateId: templateId ?? this.templateId,
+      amountMl: amountMl ?? this.amountMl,
+      beverageType: beverageType ?? this.beverageType,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

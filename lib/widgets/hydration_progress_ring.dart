@@ -2,17 +2,20 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
+import '../util/volume_utils.dart';
 
 class HydrationProgressRing extends StatelessWidget {
   final double progress;
   final double currentMl;
   final double goalMl;
+  final String unit;
 
   const HydrationProgressRing({
     super.key,
     required this.progress,
     required this.currentMl,
     required this.goalMl,
+    this.unit = 'ml',
   });
 
   @override
@@ -39,7 +42,7 @@ class HydrationProgressRing extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${currentMl.toStringAsFixed(0)} ml',
+                VolumeUtils.format(currentMl, unit),
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -48,7 +51,7 @@ class HydrationProgressRing extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${goalMl.toStringAsFixed(0)} ml goal',
+                '${VolumeUtils.format(goalMl, unit)} goal',
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   color: AppColors.textSecondary,

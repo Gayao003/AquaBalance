@@ -1,13 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import '../services/auth_service.dart';
+import '../services/checkin_service.dart';
+import '../services/user_service.dart';
+import '../models/hydration_models.dart';
 import '../theme/app_theme.dart';
+import '../util/volume_utils.dart';
 import 'intake_recording_page.dart';
 
-class IntakeHistoryPage extends StatelessWidget {
+class IntakeHistoryPage extends StatefulWidget {
   const IntakeHistoryPage({super.key});
 
   @override
+  State<IntakeHistoryPage> createState() => _IntakeHistoryPageState();
+}
+
+class _IntakeHistoryPageState extends State<IntakeHistoryPage> {
+  final _authService = AuthService();
+  final _checkInService = CheckInService();
+  final _userService = UserService();
+  String _volumeUnit = 'ml';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVolumeUnit();
+  }
+
+  Future<void> _loadVolumeUnit() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final profile = await _userService.getUserProfile(userId);
+    if (profile != null && mounted) {
+      setState(() => _volumeUnit = profile.volumeUnit);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final userId = _authService.currentUser?.uid ?? '';
+
+    if (userId.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            'Intake History',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+        ),
+        body: const Center(child: Text('Sign in to view intake history')),
+      );
+    }
+
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = todayStart.add(const Duration(days: 1));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -16,54 +67,97 @@ class IntakeHistoryPage extends StatelessWidget {
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSummaryCard(),
-            const SizedBox(height: 20),
-            Text(
-              'Recent Intake',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
-                children: [
-                  _buildEntry('09:20 AM', 'Water', 350),
-                  _buildEntry('11:00 AM', 'Herbal Tea', 250),
-                  _buildEntry('01:30 PM', 'Electrolytes', 300),
-                  _buildEntry('04:45 PM', 'Water', 200),
-                ],
-              ),
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => IntakeRecordingPage(
-                        onSaved: () => Navigator.pop(context),
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Record Intake'),
-              ),
-            ),
-          ],
+      body: StreamBuilder<List<HydrationCheckIn>>(
+        stream: _checkInService.watchCheckInsInRange(
+          userId,
+          todayStart,
+          todayEnd,
         ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final checkIns = snapshot.data ?? [];
+          final totalIntake = checkIns.fold<double>(
+            0,
+            (sum, checkIn) => sum + checkIn.amountMl,
+          );
+          final percentage = totalIntake > 0
+              ? ((totalIntake / 2000) * 100).clamp(0, 100).toInt()
+              : 0;
+
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSummaryCard(totalIntake, percentage),
+                const SizedBox(height: 20),
+                Text(
+                  'Today\'s Intake',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: checkIns.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.opacity_outlined,
+                                size: 64,
+                                color: AppColors.textSecondary.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No intake logged today',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: checkIns.length,
+                          itemBuilder: (context, index) {
+                            final checkIn =
+                                checkIns[checkIns.length - 1 - index];
+                            return _buildEntry(checkIn);
+                          },
+                        ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => IntakeRecordingPage(
+                            onSaved: () => Navigator.pop(context),
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Record Intake'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(double totalIntake, int percentage) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -95,7 +189,7 @@ class IntakeHistoryPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '1,100 ml logged',
+                  '${VolumeUtils.format(totalIntake, _volumeUnit)} logged',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -106,7 +200,7 @@ class IntakeHistoryPage extends StatelessWidget {
             ),
           ),
           Text(
-            '55%',
+            '$percentage%',
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -118,7 +212,10 @@ class IntakeHistoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildEntry(String time, String type, int amount) {
+  Widget _buildEntry(HydrationCheckIn checkIn) {
+    final timeFormat = DateFormat('hh:mm a');
+    final time = timeFormat.format(checkIn.timestamp);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -134,7 +231,7 @@ class IntakeHistoryPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                type,
+                checkIn.beverageType,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -151,7 +248,7 @@ class IntakeHistoryPage extends StatelessWidget {
             ],
           ),
           Text(
-            '$amount ml',
+            VolumeUtils.format(checkIn.amountMl, _volumeUnit),
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w600,

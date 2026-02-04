@@ -1,12 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import '../util/volume_utils.dart';
 
-class OutputHistoryPage extends StatelessWidget {
+class OutputHistoryPage extends StatefulWidget {
   const OutputHistoryPage({super.key});
 
   @override
+  State<OutputHistoryPage> createState() => _OutputHistoryPageState();
+}
+
+class _OutputHistoryPageState extends State<OutputHistoryPage> {
+  final _authService = AuthService();
+  final _userService = UserService();
+  String _volumeUnit = 'ml';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVolumeUnit();
+  }
+
+  Future<void> _loadVolumeUnit() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final profile = await _userService.getUserProfile(userId);
+    if (profile != null && mounted) {
+      setState(() => _volumeUnit = profile.volumeUnit);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final userId = _authService.currentUser?.uid ?? '';
+
+    if (userId.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            'Output History',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+        ),
+        body: const Center(child: Text('Sign in to view output history')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -20,10 +64,10 @@ class OutputHistoryPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSummaryCard(),
+            _buildSummaryCard(0, 0),
             const SizedBox(height: 20),
             Text(
-              'Estimated Output',
+              'Output Tracking',
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -31,13 +75,35 @@ class OutputHistoryPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: ListView(
-                children: [
-                  _buildEntry('10:30 AM', 'Estimated', 180),
-                  _buildEntry('01:15 PM', 'Estimated', 220),
-                  _buildEntry('03:40 PM', 'Estimated', 160),
-                  _buildEntry('06:10 PM', 'Estimated', 210),
-                ],
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.water_damage_outlined,
+                      size: 64,
+                      color: AppColors.textSecondary.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Output tracking coming soon',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Track your fluid output to better\nunderstand your hydration balance',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Container(
@@ -53,7 +119,7 @@ class OutputHistoryPage extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Output is estimated from your intake patterns. Connect a clinician tool for accuracy.',
+                      'Output tracking helps understand your hydration balance. Connect medical devices for precise measurements.',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: AppColors.textSecondary,
@@ -69,7 +135,7 @@ class OutputHistoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(double totalOutput, int percentage) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -104,7 +170,7 @@ class OutputHistoryPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '770 ml estimated',
+                  'No output logged',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -112,59 +178,6 @@ class OutputHistoryPage extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-          Text(
-            '72%',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.accent,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEntry(String time, String type, int amount) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                type,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                time,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            '$amount ml',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.accent,
             ),
           ),
         ],

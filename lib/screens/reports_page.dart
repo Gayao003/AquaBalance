@@ -3,16 +3,42 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/hydration_models.dart';
 import '../services/auth_service.dart';
 import '../services/checkin_service.dart';
+import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import '../util/volume_utils.dart';
 
-class ReportsPage extends StatelessWidget {
+class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key});
 
   @override
+  State<ReportsPage> createState() => _ReportsPageState();
+}
+
+class _ReportsPageState extends State<ReportsPage> {
+  final _authService = AuthService();
+  final _checkInService = CheckInService();
+  final _userService = UserService();
+  String _volumeUnit = 'ml';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVolumeUnit();
+  }
+
+  Future<void> _loadVolumeUnit() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    final profile = await _userService.getUserProfile(userId);
+    if (profile != null && mounted) {
+      setState(() => _volumeUnit = profile.volumeUnit);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    final checkInService = CheckInService();
-    final userId = authService.currentUser?.uid ?? '';
+    final userId = _authService.currentUser?.uid ?? '';
 
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
@@ -30,7 +56,7 @@ class ReportsPage extends StatelessWidget {
       body: userId.isEmpty
           ? const Center(child: Text('Sign in to view reports'))
           : StreamBuilder<List<HydrationCheckIn>>(
-              stream: checkInService.watchCheckInsInRange(
+              stream: _checkInService.watchCheckInsInRange(
                 userId,
                 weekStart,
                 todayEnd,
@@ -221,7 +247,7 @@ class ReportsPage extends StatelessWidget {
             ),
           ),
           Text(
-            '${checkIn.amountMl.toStringAsFixed(0)} ml',
+            VolumeUtils.format(checkIn.amountMl, _volumeUnit),
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: FontWeight.w600,

@@ -27,4 +27,14 @@ class TemplateService {
       userId,
     ).doc(template.id).set(template.toJson(), SetOptions(merge: true));
   }
+
+  Future<void> updateTemplate(String userId, HydrationTemplate template) async {
+    await _collection(
+      userId,
+    ).doc(template.id).set(template.toJson(), SetOptions(merge: true));
+  }
+
+  Future<void> deleteTemplate(String userId, String templateId) async {
+    await _collection(userId).doc(templateId).delete();
+  }
 }

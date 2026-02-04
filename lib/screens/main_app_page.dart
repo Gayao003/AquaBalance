@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../services/hybrid_sync_service.dart';
-import '../services/checkin_service.dart';
 import '../models/io_models.dart';
-import '../models/hydration_models.dart';
 import '../theme/app_theme.dart';
 import 'schedule_page.dart';
 import 'trends_page_redesign.dart';
-import 'home_page_redesign.dart';
+import 'home_page_redesign.dart' as home;
 import 'settings_page_redesign.dart';
 import 'reminders_page.dart';
 import 'login_page_new.dart';
@@ -21,6 +19,7 @@ import 'help_support_page.dart';
 import 'about_page.dart';
 import 'reports_page.dart';
 import '../widgets/app_drawer.dart';
+import 'intake_recording_page.dart';
 
 class MainAppPage extends StatefulWidget {
   const MainAppPage({super.key});
@@ -33,13 +32,12 @@ class _MainAppPageState extends State<MainAppPage> {
   int _selectedIndex = 0;
   late List<Widget> _pages;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final _checkInService = CheckInService();
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      HomePageRedesign(onOpenDrawer: _openDrawer),
+      home.HomePageRedesign(onOpenDrawer: _openDrawer),
       SchedulePage(onOpenDrawer: _openDrawer),
       TrendsPageRedesign(onOpenDrawer: _openDrawer),
       SettingsPageRedesign(onOpenDrawer: _openDrawer),
@@ -50,105 +48,13 @@ class _MainAppPageState extends State<MainAppPage> {
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  void _openQuickCheckIn() {
-    final userId = AuthService().currentUser?.uid ?? '';
-    if (userId.isEmpty) return;
-
-    final amountController = TextEditingController(text: '250');
-    String selectedBeverage = 'Water';
-    final beverages = ['Water', 'Coffee', 'Tea', 'Juice', 'Electrolytes'];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  void _openLogIntake() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            IntakeRecordingPage(onSaved: () => setState(() {})),
       ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Quick check-in',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: beverages.map((beverage) {
-                      final selected = selectedBeverage == beverage;
-                      return ChoiceChip(
-                        label: Text(beverage),
-                        selected: selected,
-                        onSelected: (_) {
-                          setModalState(() => selectedBeverage = beverage);
-                        },
-                        selectedColor: AppColors.primary.withOpacity(0.2),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: amountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Amount (ml)',
-                      hintText: 'e.g. 250',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final amount =
-                            double.tryParse(amountController.text.trim()) ?? 0;
-                        final checkIn = HydrationCheckIn(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
-                          userId: userId,
-                          scheduleId: null,
-                          beverageType: selectedBeverage,
-                          amountMl: amount,
-                          timestamp: DateTime.now(),
-                        );
-                        await _checkInService.addCheckIn(userId, checkIn);
-                        if (mounted) Navigator.pop(context);
-                      },
-                      child: const Text('Save check-in'),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
-  }
-
-  void _refreshPages() {
-    setState(() {
-      _pages = [
-        HomePageRedesign(onOpenDrawer: _openDrawer),
-        SchedulePage(onOpenDrawer: _openDrawer),
-        TrendsPageRedesign(onOpenDrawer: _openDrawer),
-        SettingsPageRedesign(onOpenDrawer: _openDrawer),
-      ];
-    });
   }
 
   void _navigateToPage(Widget page) {
@@ -221,10 +127,11 @@ class _MainAppPageState extends State<MainAppPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _openQuickCheckIn,
+        onPressed: _openLogIntake,
         backgroundColor: AppColors.primary,
         elevation: 8,
-        child: const Icon(Icons.check, color: Colors.white),
+        tooltip: 'Log intake',
+        child: const Icon(Icons.water_drop, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );

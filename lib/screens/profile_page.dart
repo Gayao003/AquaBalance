@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
+import '../services/health_profile_service.dart';
 import '../models/user_profile.dart';
+import '../models/health_profile.dart';
 import '../theme/app_theme.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -16,6 +18,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final _authService = AuthService();
   final _userService = UserService();
+  final _healthProfileService = HealthProfileService();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -33,11 +36,41 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
+  // Health profile state variables
+  HealthProfile? _activeHealthProfile;
+  Set<String> _selectedConditions = {};
+  String _customCondition = '';
+  String _selectedTone = 'neutral';
+
   @override
   void initState() {
     super.initState();
     final userId = _authService.currentUser?.uid ?? '';
     _profileFuture = _userService.getUserProfile(userId);
+    _loadHealthProfile();
+  }
+
+  Future<void> _loadHealthProfile() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) return;
+
+    try {
+      final profile = await _healthProfileService.getActiveHealthProfile(
+        userId,
+      );
+      if (mounted) {
+        setState(() {
+          _activeHealthProfile = profile;
+          if (profile != null) {
+            _selectedConditions = Set<String>.from(profile.conditions);
+            _customCondition = profile.customCondition ?? '';
+            _selectedTone = profile.messageTone;
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading health profile: $e');
+    }
   }
 
   @override
@@ -186,6 +219,76 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _saveHealthProfile() async {
+    final userId = _authService.currentUser?.uid ?? '';
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please sign in to save health profile',
+            style: GoogleFonts.poppins(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Handle "None" case - empty list means no health considerations
+      final conditions = _selectedConditions.contains('None')
+          ? <String>[]
+          : _selectedConditions.toList();
+
+      if (_activeHealthProfile != null) {
+        // Update existing profile
+        final updated = _activeHealthProfile!.copyWith(
+          conditions: conditions,
+          customCondition: conditions.contains('Other')
+              ? _customCondition
+              : null,
+          messageTone: _selectedTone,
+          updatedAt: DateTime.now(),
+        );
+        await _healthProfileService.updateHealthProfile(updated);
+      } else {
+        // Create new profile
+        await _healthProfileService.createHealthProfile(
+          userId: userId,
+          conditions: conditions,
+          customCondition: conditions.contains('Other')
+              ? _customCondition
+              : null,
+          messageTone: _selectedTone,
+        );
+      }
+
+      _loadHealthProfile();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Health profile saved successfully',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error saving health profile: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = _authService.currentUser;
@@ -301,6 +404,35 @@ class _ProfilePageState extends State<ProfilePage> {
                       color: AppColors.textSecondary,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader('Health Considerations'),
+                  const SizedBox(height: 8),
+                  _buildInfoBanner(
+                    'Your health conditions help us personalize hydration recommendations.',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildHealthConsiderationsSection(),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _saveHealthProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.success,
+                      ),
+                      child: Text(
+                        'Save Health Profile',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_activeHealthProfile != null) ...[
+                    const SizedBox(height: 12),
+                    _buildActiveProfileCard(),
+                  ],
                   const SizedBox(height: 24),
                   _buildSectionHeader('Security'),
                   const SizedBox(height: 8),
@@ -501,6 +633,279 @@ class _ProfilePageState extends State<ProfilePage> {
           TextSpan(
             text: ' *',
             style: TextStyle(color: AppColors.error),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHealthConsiderationsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your Health Conditions',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Dropdown to select conditions
+          DropdownButton<String>(
+            isExpanded: true,
+            underline: const SizedBox(),
+            hint: Text(
+              'Select a condition to add',
+              style: GoogleFonts.poppins(color: AppColors.textTertiary),
+            ),
+            items: HealthProfile.predefinedConditions
+                .where((c) => !_selectedConditions.contains(c))
+                .map((condition) {
+                  return DropdownMenuItem(
+                    value: condition,
+                    child: Text(condition, style: GoogleFonts.poppins()),
+                  );
+                })
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  _selectedConditions.add(value);
+                  if (value != 'None') {
+                    _selectedConditions.remove('None');
+                  }
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          // Selected conditions with delete buttons
+          if (_selectedConditions.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Selected conditions',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _selectedConditions.map((condition) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            condition,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedConditions.remove(condition);
+                                if (_selectedConditions.isEmpty) {
+                                  _selectedConditions.add('None');
+                                }
+                              });
+                            },
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'No health conditions selected',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          if (_selectedConditions.contains('Other')) ...[
+            const SizedBox(height: 12),
+            TextField(
+              onChanged: (value) => setState(() => _customCondition = value),
+              decoration: InputDecoration(
+                hintText: 'Specify your health condition',
+                hintStyle: GoogleFonts.poppins(color: AppColors.textTertiary),
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+              style: GoogleFonts.poppins(color: AppColors.textPrimary),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Text(
+            'Reminder Tone',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _buildToneButton('Gentle', 'gentle')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildToneButton('Neutral', 'neutral')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildToneButton('Frequent', 'frequent')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToneButton(String label, String value) {
+    final isSelected = _selectedTone == value;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTone = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveProfileCard() {
+    if (_activeHealthProfile == null) return const SizedBox();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.success.withOpacity(0.2), Colors.transparent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.success),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.success.withOpacity(0.2),
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: AppColors.success,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Active Profile',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.success,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _activeHealthProfile!.getDetailedDisplay(),
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

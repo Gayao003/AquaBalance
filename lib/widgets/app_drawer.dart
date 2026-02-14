@@ -7,8 +7,6 @@ class AppDrawer extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelectIndex;
   final VoidCallback onNavigateToProfile;
-  final VoidCallback onNavigateToGoals;
-  final VoidCallback onNavigateToReminders;
   final VoidCallback onNavigateToIntakeHistory;
   final VoidCallback onNavigateToOutputHistory;
   final VoidCallback onNavigateToReports;
@@ -21,8 +19,6 @@ class AppDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelectIndex,
     required this.onNavigateToProfile,
-    required this.onNavigateToGoals,
-    required this.onNavigateToReminders,
     required this.onNavigateToIntakeHistory,
     required this.onNavigateToOutputHistory,
     required this.onNavigateToReports,
@@ -136,18 +132,6 @@ class AppDrawer extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildSectionLabel('Track'),
-                  _buildNavItem(
-                    context,
-                    icon: Icons.alarm,
-                    label: 'Reminders',
-                    onTap: onNavigateToReminders,
-                  ),
-                  _buildNavItem(
-                    context,
-                    icon: Icons.flag_circle_rounded,
-                    label: 'Hydration Goals',
-                    onTap: onNavigateToGoals,
-                  ),
                   _buildNavItem(
                     context,
                     icon: Icons.opacity,

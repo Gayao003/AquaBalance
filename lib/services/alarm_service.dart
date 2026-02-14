@@ -7,6 +7,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 import '../models/hydration_models.dart';
 import '../services/checkin_service.dart';
+import '../services/health_profile_service.dart';
 import '../services/native_alarm_service.dart';
 
 class AlarmService {
@@ -15,6 +16,7 @@ class AlarmService {
   late FlutterLocalNotificationsPlugin _notificationsPlugin;
   bool _initialized = false;
   final _checkInService = CheckInService();
+  final _healthProfileService = HealthProfileService();
   final bool _preferNativeAndroid = true;
 
   static const String actionDrink = 'action_drink';
@@ -173,6 +175,25 @@ class AlarmService {
       debugPrint('AlarmService initialized: $_initialized');
     }
 
+    // Try to fetch and use health profile message if available
+    final userId = payloadData?['userId'] as String?;
+    if (userId != null && userId.isNotEmpty) {
+      try {
+        final healthProfile = await _healthProfileService
+            .getActiveHealthProfile(userId);
+        if (healthProfile != null && healthProfile.isEnabled) {
+          body = healthProfile.getNotificationMessage();
+          debugPrint('Using health profile message for user: $userId');
+          debugPrint(
+            'Health profile conditions: ${healthProfile.getDisplayName()}',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error fetching health profile: $e');
+        // Continue with default message if error occurs
+      }
+    }
+
     final location = _resolveLocation(timezoneIdentifier);
     final tz.TZDateTime scheduledTime = _nextInstanceOfTimeOnOrAfter(
       hour,
@@ -181,18 +202,27 @@ class AlarmService {
       location,
     );
 
+    // Get beverage type from payload for dynamic button text
+    final beverageType = payloadData?['beverageType'] as String? ?? 'Water';
+    final actionText = 'I Drank $beverageType';
+
+    // Include beverage type in notification ID to force Android to update action text
+    // Android caches notification actions, so changing the ID forces a fresh notification
+    final notificationId = _getNotificationId(id, beverageType);
+
     debugPrint('Scheduling reminder:');
-    debugPrint('  ID: $id (notification ID: ${_getNotificationId(id)})');
+    debugPrint('  ID: $id (notification ID: $notificationId)');
     debugPrint(
       '  Time: ${scheduledTime.hour}:${scheduledTime.minute.toString().padLeft(2, '0')}',
     );
     debugPrint('  Title: $title');
+    debugPrint('  Beverage: $beverageType');
 
     var scheduledWithFlutter = false;
     if (!(Platform.isAndroid && _preferNativeAndroid)) {
       try {
         await _notificationsPlugin.zonedSchedule(
-          _getNotificationId(id),
+          notificationId,
           title,
           body,
           scheduledTime,
@@ -210,9 +240,9 @@ class AlarmService {
               // Keep notification visible until user acts
               autoCancel: false,
               actions: [
-                const AndroidNotificationAction(
+                AndroidNotificationAction(
                   actionDrink,
-                  'I Drank Water',
+                  actionText,
                   showsUserInterface: false,
                 ),
                 const AndroidNotificationAction(
@@ -246,9 +276,8 @@ class AlarmService {
 
     if (Platform.isAndroid && (!scheduledWithFlutter || _preferNativeAndroid)) {
       try {
-        final alarmId = _getNotificationId(id);
         final ok = await NativeAlarmService.scheduleDailyWaterAlarm(
-          alarmId: alarmId,
+          alarmId: notificationId,
           hour: hour,
           minute: minute,
           title: title,
@@ -256,9 +285,9 @@ class AlarmService {
           payload: payloadData == null ? null : jsonEncode(payloadData),
         );
         if (ok) {
-          debugPrint('✅ Native alarm scheduled for ID $alarmId');
+          debugPrint('✅ Native alarm scheduled for ID $notificationId');
         } else {
-          debugPrint('❌ Native alarm scheduling failed for ID $alarmId');
+          debugPrint('❌ Native alarm scheduling failed for ID $notificationId');
         }
       } catch (e) {
         debugPrint('❌ Native alarm error: $e');
@@ -271,6 +300,26 @@ class AlarmService {
   }
 
   Future<void> cancelReminder(int id) async {
+    // Cancel all possible beverage type variations since we don't know which one was used
+    final beverageTypes = [
+      'Water',
+      'Coffee',
+      'Tea',
+      'Juice',
+      'Milk',
+      'Sports Drink',
+      'Other',
+    ];
+
+    for (final beverage in beverageTypes) {
+      final notificationId = _getNotificationId(id, beverage);
+      await _notificationsPlugin.cancel(notificationId);
+      if (Platform.isAndroid) {
+        await NativeAlarmService.cancelAlarm(notificationId);
+      }
+    }
+
+    // Also cancel the default (no beverage type)
     await _notificationsPlugin.cancel(_getNotificationId(id));
     if (Platform.isAndroid) {
       await NativeAlarmService.cancelAlarm(_getNotificationId(id));
@@ -279,9 +328,14 @@ class AlarmService {
 
   /// Converts a schedule ID to a valid 32-bit notification ID.
   /// Schedule IDs from millisecondsSinceEpoch are too large for Android.
-  int _getNotificationId(int scheduleId) {
+  /// Include beverageType to force new notification when drink type changes.
+  int _getNotificationId(int scheduleId, [String? beverageType]) {
+    // Combine schedule ID with beverage type to create unique notification ID
+    final combined = beverageType != null
+        ? '$scheduleId-$beverageType'.hashCode
+        : scheduleId.hashCode;
     // Use absolute value of hash to ensure positive 32-bit integer
-    return (scheduleId.hashCode).abs() % (0x7FFFFFFF); // Max 32-bit signed int
+    return combined.abs() % (0x7FFFFFFF); // Max 32-bit signed int
   }
 
   /// Shows a test notification immediately to verify notification permissions

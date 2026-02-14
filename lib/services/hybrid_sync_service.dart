@@ -83,18 +83,23 @@ class HybridSyncService {
     required String fluidType,
     required String notes,
   }) async {
+    final now = DateTime.now();
     final entry = IntakeEntry(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: now.millisecondsSinceEpoch.toString(),
       userId: userId,
       volume: volume,
       fluidType: fluidType,
-      timestamp: DateTime.now(),
+      timestamp: now,
       notes: notes,
-      shift: _getShift(DateTime.now()),
+      shift: _getShift(now),
     );
 
     // Save locally first (offline-first)
     await _intakeBox.put(entry.id, entry);
+
+    // Invalidate the cached summary for today
+    final key = '${userId}_${now.year}-${now.month}-${now.day}';
+    await _summaryBox.delete(key);
 
     // Queue for sync if online
     if (_isOnline) {

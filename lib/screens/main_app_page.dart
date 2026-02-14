@@ -8,11 +8,9 @@ import 'schedule_page.dart';
 import 'trends_page_redesign.dart';
 import 'home_page_redesign.dart' as home;
 import 'settings_page_redesign.dart';
-import 'reminders_page.dart';
 import 'login_page_new.dart';
 import 'register_page_new.dart';
 import 'profile_page.dart';
-import 'goals_page.dart';
 import 'intake_history_page.dart';
 import 'output_history_page.dart';
 import 'help_support_page.dart';
@@ -46,15 +44,6 @@ class _MainAppPageState extends State<MainAppPage> {
 
   void _openDrawer() {
     _scaffoldKey.currentState?.openDrawer();
-  }
-
-  void _openLogIntake() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            IntakeRecordingPage(onSaved: () => setState(() {})),
-      ),
-    );
   }
 
   void _navigateToPage(Widget page) {
@@ -92,8 +81,6 @@ class _MainAppPageState extends State<MainAppPage> {
           setState(() => _selectedIndex = index);
         },
         onNavigateToProfile: () => _navigateToPage(const ProfilePage()),
-        onNavigateToGoals: () => _navigateToPage(const GoalsPage()),
-        onNavigateToReminders: () => _navigateToPage(const RemindersPage()),
         onNavigateToIntakeHistory: () =>
             _navigateToPage(const IntakeHistoryPage()),
         onNavigateToOutputHistory: () =>
@@ -126,14 +113,6 @@ class _MainAppPageState extends State<MainAppPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openLogIntake,
-        backgroundColor: AppColors.primary,
-        elevation: 8,
-        tooltip: 'Log intake',
-        child: const Icon(Icons.water_drop, color: Colors.white),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

@@ -11,6 +11,7 @@ import '../models/io_models.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
 import 'intake_recording_page.dart';
+import 'schedule_page.dart';
 import '../widgets/hydration_progress_ring.dart';
 import '../widgets/hydration_wave_card.dart';
 import '../util/volume_utils.dart';
@@ -30,14 +31,22 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
   final _scheduleService = ScheduleService();
   final _checkInService = CheckInService();
   final _userService = UserService();
-  late Future<DailyFluidSummary?> _summaryFuture;
+  Stream<List<HydrationCheckIn>>? _checkInsStream;
+  String _currentUserId = '';
   String _volumeUnit = 'ml';
 
   @override
   void initState() {
     super.initState();
-    _loadSummary();
     _loadVolumeUnit();
+  }
+
+  Stream<List<HydrationCheckIn>> _getCheckInsStream(String userId) {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+
+    return _checkInService.watchCheckInsInRange(userId, startOfDay, endOfDay);
   }
 
   void _loadVolumeUnit() {
@@ -72,30 +81,14 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     return true;
   }
 
-  double _dailyGoalFromSchedules(
-    List<HydrationSchedule> schedules,
-    DateTime today,
-  ) {
-    final activeSchedules = schedules.where(
-      (s) => _isScheduleActiveToday(s, today),
-    );
-    final total = activeSchedules.fold<double>(0, (sum, s) => sum + s.amountMl);
-    return total <= 0 ? 2000.0 : total;
-  }
-
-  void _loadSummary() {
-    setState(() {
-      _summaryFuture = _hybridSyncService.getDailySummary(
-        userId: _authService.currentUser?.uid ?? '',
-        date: DateTime.now(),
-      );
-    });
-  }
-
   void _openIntakeDialog() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => IntakeRecordingPage(onSaved: _loadSummary),
+        builder: (context) => IntakeRecordingPage(
+          onSaved: () {
+            // Stream will automatically update
+          },
+        ),
       ),
     );
   }
@@ -114,7 +107,7 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
 
     await _checkInService.addCheckIn(userId, checkIn);
-    _loadSummary();
+    // Stream will automatically update
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -142,7 +135,7 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
 
     await _checkInService.addCheckIn(userId, checkIn);
-    _loadSummary();
+    // Stream will automatically update
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -156,6 +149,18 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = _authService.currentUser?.uid ?? '';
+
+    // Recreate stream when user changes (fixes data isolation bug)
+    if (userId != _currentUserId) {
+      _currentUserId = userId;
+      if (userId.isNotEmpty) {
+        _checkInsStream = _getCheckInsStream(userId);
+      } else {
+        _checkInsStream = null;
+      }
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -169,43 +174,119 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
                 icon: const Icon(Icons.menu),
                 onPressed: widget.onOpenDrawer,
               ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Clear today\'s entries',
+            onPressed: () async {
+              final userId = _authService.currentUser?.uid ?? '';
+              if (userId.isEmpty) return;
+
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Clear Today\'s Entries'),
+                  content: const Text(
+                    'Delete all water intake records for today? This cannot be undone.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                final now = DateTime.now();
+                final startOfDay = DateTime(now.year, now.month, now.day);
+                final endOfDay = DateTime(
+                  now.year,
+                  now.month,
+                  now.day,
+                  23,
+                  59,
+                  59,
+                  999,
+                );
+
+                await _checkInService.deleteAllCheckInsInRange(
+                  userId,
+                  startOfDay,
+                  endOfDay,
+                );
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Today\'s entries cleared'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
-      body: FutureBuilder<DailyFluidSummary?>(
-        future: _summaryFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
+      body: userId.isEmpty
+          ? const Center(child: Text('Please sign in'))
+          : _checkInsStream == null
+          ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
+            )
+          : StreamBuilder<List<HydrationCheckIn>>(
+              stream: _checkInsStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  );
+                }
 
-          final summary = snapshot.data;
+                final checkIns = snapshot.data ?? [];
+                final totalIntake = checkIns.fold<double>(
+                  0,
+                  (sum, checkIn) => sum + checkIn.amountMl,
+                );
 
-          return RefreshIndicator(
-            onRefresh: () async => _loadSummary(),
-            color: AppColors.primary,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildGreetingSection(),
-                  const SizedBox(height: 20),
-                  _buildHydrationOverview(summary),
-                  const SizedBox(height: 20),
-                  _buildTodayScheduleStatus(),
-                  const SizedBox(height: 24),
-                  _buildEstimatedOutputCard(summary),
-                  const SizedBox(height: 24),
-                  _buildRecentEntries(summary),
-                  const SizedBox(height: 32),
-                ],
-              ),
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    setState(() {
+                      // Rebuild to refresh the stream
+                    });
+                  },
+                  color: AppColors.primary,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildGreetingSection(),
+                        const SizedBox(height: 20),
+                        _buildHydrationOverview(totalIntake, checkIns),
+                        const SizedBox(height: 20),
+                        _buildEstimatedOutputCard(totalIntake),
+                        const SizedBox(height: 20),
+                        _buildTodayScheduleStatus(),
+                        const SizedBox(height: 24),
+                        _buildRecentEntries(checkIns),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 
@@ -246,76 +327,140 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
   }
 
-  Widget _buildEstimatedOutputCard(DailyFluidSummary? summary) {
-    if (summary == null) return const SizedBox();
+  double _dailyGoalFromSchedules(
+    List<HydrationSchedule> schedules,
+    DateTime today,
+  ) {
+    final activeSchedules = schedules.where(
+      (s) => _isScheduleActiveToday(s, today),
+    );
+    final total = activeSchedules.fold<double>(0, (sum, s) => sum + s.amountMl);
+    return total;
+  }
+
+  double _estimateUrinaryOutput(double intakeMl) {
+    // Typical urinary output is approximately 60-70% of fluid intake
+    // This is a rough estimate and varies based on:
+    // - Physical activity level
+    // - Ambient temperature and humidity
+    // - Individual metabolism
+    // - Diet and sodium intake
+    // - Medical conditions
+    return intakeMl * 0.65; // Using 65% as average estimation
+  }
+
+  Widget _buildEstimatedOutputCard(double intakeMl) {
+    if (intakeMl <= 0) {
+      return const SizedBox(); // Don't show if no intake logged
+    }
+
+    final estimatedOutput = _estimateUrinaryOutput(intakeMl);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.accentLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.accent.withOpacity(0.3), width: 1),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Estimated Output',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    VolumeUtils.format(summary.estimatedOutput, _volumeUnit),
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                ],
-              ),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppColors.accent.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.opacity, color: AppColors.accent, size: 32),
+                child: const Icon(
+                  Icons.water_drop_outlined,
+                  color: AppColors.accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Estimated Urinary Output',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Based on your fluid intake',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.accent.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              'Confidence: ${summary.estimatedOutputConfidence}',
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: AppColors.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Estimated Volume:',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  VolumeUtils.format(estimatedOutput, _volumeUnit),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Based on your fluid intake and health factors',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: AppColors.textTertiary,
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.warning.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: AppColors.warning, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This is an approximate estimate. Actual urinary output varies based on physical activity, temperature, diet, metabolism, and individual health factors.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -323,25 +468,21 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
   }
 
-  Widget _buildHydrationOverview(DailyFluidSummary? summary) {
+  Widget _buildHydrationOverview(
+    double totalIntake,
+    List<HydrationCheckIn> checkIns,
+  ) {
     final userId = _authService.currentUser?.uid ?? '';
-    final totalIntake = summary?.totalIntake ?? 0.0;
-    const fallbackGoal = 2000.0;
 
     if (userId.isEmpty) {
-      final progress = (totalIntake / fallbackGoal).clamp(0.0, 1.0);
-      final remaining = (fallbackGoal - totalIntake).clamp(0.0, fallbackGoal);
-      return Column(
-        children: [
-          _buildHydrationFocusCard(
-            progress: progress,
-            currentMl: totalIntake,
-            goalMl: fallbackGoal,
-            remainingMl: remaining,
+      return Center(
+        child: Text(
+          'Please sign in to track your hydration',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppColors.textSecondary,
           ),
-          const SizedBox(height: 16),
-          _buildHydrationWaveInline(progress, totalIntake, fallbackGoal),
-        ],
+        ),
       );
     }
 
@@ -350,6 +491,67 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
       builder: (context, snapshot) {
         final schedules = snapshot.data ?? <HydrationSchedule>[];
         final goal = _dailyGoalFromSchedules(schedules, DateTime.now());
+
+        if (goal <= 0) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.water_drop_outlined,
+                  size: 48,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No hydration schedules set',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create a schedule in the Goals page to start tracking your daily hydration',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => SchedulePage(onOpenDrawer: null),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: Text(
+                    'Set Up Goals',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         final progress = (totalIntake / goal).clamp(0.0, 1.0);
         final remaining = (goal - totalIntake).clamp(0.0, goal);
         return Column(
@@ -904,12 +1106,12 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
     );
   }
 
-  Widget _buildRecentEntries(DailyFluidSummary? summary) {
-    if (summary == null || summary.intakeEntries.isEmpty) {
+  Widget _buildRecentEntries(List<HydrationCheckIn> checkIns) {
+    if (checkIns.isEmpty) {
       return const SizedBox();
     }
 
-    final entries = [...summary.intakeEntries]
+    final entries = [...checkIns]
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return Column(
@@ -944,7 +1146,7 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            entry.fluidType,
+                            entry.beverageType,
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -963,7 +1165,7 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
                       ),
                     ),
                     Text(
-                      VolumeUtils.format(entry.volume, _volumeUnit),
+                      VolumeUtils.format(entry.amountMl, _volumeUnit),
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

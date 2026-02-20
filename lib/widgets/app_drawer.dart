@@ -47,7 +47,7 @@ class AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.08),
-                border: const Border(
+                border: Border(
                   bottom: BorderSide(color: AppColors.border),
                 ),
               ),

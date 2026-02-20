@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/tutorial_service.dart';
 import '../services/user_service.dart';
 import '../services/health_profile_service.dart';
 import '../models/user_profile.dart';
 import '../models/health_profile.dart';
 import '../theme/app_theme.dart';
+import '../widgets/page_tutorial_overlay.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,6 +19,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final _authService = AuthService();
+  final _tutorialService = TutorialService();
   final _userService = UserService();
   final _healthProfileService = HealthProfileService();
   final _formKey = GlobalKey<FormState>();
@@ -35,6 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isSaving = false;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  bool _tutorialChecked = false;
 
   // Health profile state variables
   HealthProfile? _activeHealthProfile;
@@ -48,6 +52,56 @@ class _ProfilePageState extends State<ProfilePage> {
     final userId = _authService.currentUser?.uid ?? '';
     _profileFuture = _userService.getUserProfile(userId);
     _loadHealthProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+    });
+  }
+
+  Future<void> _maybeShowTutorial({bool force = false}) async {
+    if (_tutorialChecked && !force) return;
+    if (!force) _tutorialChecked = true;
+
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+
+    final shouldShow = force
+        ? true
+        : await _tutorialService.shouldShowPageTutorial('profile');
+    if (!mounted || !shouldShow) return;
+
+    await _tutorialService.markPageTutorialSeen('profile');
+    if (!mounted) return;
+
+    await showPageTutorialOverlay(
+      context: context,
+      pageTitle: 'Profile',
+      steps: const [
+        TutorialStepItem(
+          title: 'Account Details',
+          description:
+              'Update your name, age, date of birth, weight, and height to improve recommendations.',
+          icon: Icons.person,
+        ),
+        TutorialStepItem(
+          title: 'Health Considerations',
+          description:
+              'Select conditions and reminder tone to personalize hydration suggestions.',
+          icon: Icons.health_and_safety,
+        ),
+        TutorialStepItem(
+          title: 'Security',
+          description:
+              'Use the password fields to securely update your login credentials.',
+          icon: Icons.lock,
+        ),
+        TutorialStepItem(
+          title: 'Save Changes',
+          description:
+              'Always save after edits so schedules and recommendations stay in sync with your profile.',
+          icon: Icons.save,
+        ),
+      ],
+    );
   }
 
   Future<void> _loadHealthProfile() async {
@@ -780,11 +834,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),

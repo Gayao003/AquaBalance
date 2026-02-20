@@ -5,6 +5,7 @@ import 'screens/login_page_new.dart';
 import 'screens/register_page_new.dart';
 import 'screens/main_app_page.dart';
 import 'services/auth_service.dart';
+import 'services/app_preferences_service.dart';
 import 'services/hybrid_sync_service.dart';
 import 'theme/app_theme.dart';
 
@@ -27,10 +28,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AquaBalance',
-      theme: AppTheme.lightTheme,
-      home: const AuthWrapper(),
+    final preferences = AppPreferencesService();
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: preferences.darkModeNotifier,
+      builder: (context, darkMode, _) {
+        return MaterialApp(
+          title: 'AquaBalance',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
+          home: const AuthWrapper(),
+        );
+      },
     );
   }
 }

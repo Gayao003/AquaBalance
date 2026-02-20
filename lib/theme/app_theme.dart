@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  static bool _isDarkMode = false;
+
+  static void setDarkMode(bool enabled) {
+    _isDarkMode = enabled;
+  }
+
+  static bool get isDarkMode => _isDarkMode;
+
   // Primary colors - Cool blue tones (hydration theme)
   static const Color primary = Color(0xFF2E7D9E); // Deep water blue
   static const Color primaryLight = Color(0xFF4A9FBD); // Lighter blue
@@ -13,18 +21,28 @@ class AppColors {
   static const Color warning = Color(0xFFF59E0B); // Amber warning accent
 
   // Neutral colors
-  static const Color background = Color(0xFFFAFCFE); // Very light blue-gray
-  static const Color surface = Color(0xFFFFFFFF); // White
-  static const Color surfaceVariant = Color(0xFFF5F7FA); // Light gray
+    static Color get background => _isDarkMode
+      ? const Color(0xFF0F172A)
+      : const Color(0xFFFAFCFE); // Very light blue-gray
+    static Color get surface => _isDarkMode
+      ? const Color(0xFF111827)
+      : const Color(0xFFFFFFFF); // White
+    static Color get surfaceVariant => _isDarkMode
+      ? const Color(0xFF1F2937)
+      : const Color(0xFFF5F7FA); // Light gray
 
   // Text colors
-  static const Color textPrimary = Color(0xFF1A1A1A); // Dark text
-  static const Color textSecondary = Color(0xFF6B7280); // Medium gray
-  static const Color textTertiary = Color(0xFF9CA3AF); // Light gray
+    static Color get textPrimary =>
+      _isDarkMode ? const Color(0xFFF3F4F6) : const Color(0xFF1A1A1A);
+    static Color get textSecondary =>
+      _isDarkMode ? const Color(0xFFD1D5DB) : const Color(0xFF6B7280);
+    static Color get textTertiary =>
+      _isDarkMode ? const Color(0xFF9CA3AF) : const Color(0xFF9CA3AF);
 
   // Border colors
-  static const Color border = Color(0xFFE5E7EB); // Light border
-  static const Color borderFocus = Color(0xFF2E7D9E); // Blue border on focus
+    static Color get border =>
+      _isDarkMode ? const Color(0xFF374151) : const Color(0xFFE5E7EB);
+    static Color get borderFocus => primary; // Blue border on focus
 
   // Error colors
   static const Color error = Color(0xFFDC2626);
@@ -50,8 +68,8 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: AppColors.background,
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: Color(0xFFFAFCFE),
+        foregroundColor: Color(0xFF1A1A1A),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
@@ -60,11 +78,11 @@ class AppTheme {
         fillColor: AppColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -82,8 +100,8 @@ class AppTheme {
           horizontal: 16,
           vertical: 14,
         ),
-        labelStyle: const TextStyle(color: AppColors.textSecondary),
-        hintStyle: const TextStyle(color: AppColors.textTertiary),
+        labelStyle: TextStyle(color: AppColors.textSecondary),
+        hintStyle: TextStyle(color: AppColors.textTertiary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -104,7 +122,7 @@ class AppTheme {
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,
@@ -150,6 +168,30 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           color: AppColors.textTertiary,
         ),
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.primaryLight,
+        onPrimary: Colors.black,
+        secondary: AppColors.accent,
+        onSecondary: Colors.black,
+        tertiary: AppColors.primary,
+        error: AppColors.error,
+        surface: Color(0xFF111827),
+        onSurface: Color(0xFFF3F4F6),
+      ),
+      scaffoldBackgroundColor: const Color(0xFF0F172A),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF0F172A),
+        foregroundColor: Color(0xFFF3F4F6),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
       ),
     );
   }

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/user_profile.dart';
+import '../services/alarm_service.dart';
+import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
+import '../services/tutorial_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/page_tutorial_overlay.dart';
 import 'login_page_new.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
@@ -20,15 +24,81 @@ class SettingsPageRedesign extends StatefulWidget {
 class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
   final _authService = AuthService();
   final _userService = UserService();
+  final _preferencesService = AppPreferencesService();
+  final _alarmService = AlarmService();
+  final _tutorialService = TutorialService();
   late Future<UserProfile?> _userProfileFuture;
   String _selectedUnit = 'ml';
-  bool _enableNotifications = true;
-  bool _darkMode = false;
+  bool _tutorialChecked = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserProfile();
+    _preferencesService.loadPreferences();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+    });
+  }
+
+  Future<void> _maybeShowTutorial({bool force = false}) async {
+    if (_tutorialChecked && !force) return;
+    if (!force) _tutorialChecked = true;
+
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+
+    final shouldShow = force
+        ? true
+        : await _tutorialService.shouldShowPageTutorial('settings');
+    if (!mounted || !shouldShow) return;
+
+    await _tutorialService.markPageTutorialSeen('settings');
+    if (!mounted) return;
+
+    await showPageTutorialOverlay(
+      context: context,
+      pageTitle: 'Settings',
+      steps: const [
+        TutorialStepItem(
+          title: 'Profile Overview',
+          description:
+              'View your account identity and key personal details at the top section.',
+          icon: Icons.person,
+        ),
+        TutorialStepItem(
+          title: 'Preferences',
+          description:
+              'Configure units, notifications, and display behavior for a personalized experience.',
+          icon: Icons.tune,
+        ),
+        TutorialStepItem(
+          title: 'Tutorial Controls',
+          description:
+              'Use Replay Tutorials to show onboarding overlays again on each page.',
+          icon: Icons.school,
+        ),
+        TutorialStepItem(
+          title: 'Account & Policies',
+          description:
+              'Access privacy, terms, and account actions like sign out in one place.',
+          icon: Icons.security,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _resetAndReplayTutorials() async {
+    await _tutorialService.resetAllTutorials();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tutorials reset. They will appear once per page again.'),
+      ),
+    );
+
+    await _maybeShowTutorial(force: true);
   }
 
   void _loadUserProfile() {
@@ -147,6 +217,13 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
                 _buildNotificationToggle(),
                 const SizedBox(height: 12),
                 _buildDarkModeToggle(),
+                const SizedBox(height: 12),
+                _buildActionTile(
+                  'Replay Tutorials',
+                  'Reset one-time guides and show overlays again',
+                  Icons.school,
+                  onTap: _resetAndReplayTutorials,
+                ),
                 const SizedBox(height: 32),
                 _buildSectionTitle('About'),
                 const SizedBox(height: 12),
@@ -412,11 +489,31 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
             ],
           ),
           Switch(
-            value: _enableNotifications,
-            onChanged: (value) {
-              setState(() {
-                _enableNotifications = value;
-              });
+            value: _preferencesService.notificationsEnabledNotifier.value,
+            onChanged: (value) async {
+              if (!value) {
+                await _preferencesService.setNotificationsEnabled(false);
+                await _alarmService.cancelAllReminders();
+                if (mounted) {
+                  setState(() {});
+                }
+                return;
+              }
+
+              final granted = await _alarmService.requestNotificationPermission();
+              await _preferencesService.setNotificationsEnabled(granted);
+              if (mounted) {
+                setState(() {});
+                if (!granted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Notification permission was not granted.',
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             activeColor: AppColors.primary,
           ),
@@ -458,11 +555,12 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
             ],
           ),
           Switch(
-            value: _darkMode,
-            onChanged: (value) {
-              setState(() {
-                _darkMode = value;
-              });
+            value: _preferencesService.darkModeNotifier.value,
+            onChanged: (value) async {
+              await _preferencesService.setDarkMode(value);
+              if (mounted) {
+                setState(() {});
+              }
             },
             activeColor: AppColors.primary,
           ),
@@ -513,7 +611,7 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+            Icon(Icons.chevron_right, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -562,7 +660,7 @@ class _SettingsPageRedesignState extends State<SettingsPageRedesign> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+            Icon(Icons.chevron_right, color: AppColors.textTertiary),
           ],
         ),
       ),

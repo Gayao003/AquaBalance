@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
+import '../services/alarm_service.dart';
+import '../services/app_preferences_service.dart';
 import '../services/hybrid_sync_service.dart';
 import '../models/io_models.dart';
 import '../theme/app_theme.dart';
@@ -17,7 +19,6 @@ import 'help_support_page.dart';
 import 'about_page.dart';
 import 'reports_page.dart';
 import '../widgets/app_drawer.dart';
-import 'intake_recording_page.dart';
 
 class MainAppPage extends StatefulWidget {
   const MainAppPage({super.key});
@@ -30,6 +31,8 @@ class _MainAppPageState extends State<MainAppPage> {
   int _selectedIndex = 0;
   late List<Widget> _pages;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _preferencesService = AppPreferencesService();
+  final _alarmService = AlarmService();
 
   @override
   void initState() {
@@ -40,13 +43,60 @@ class _MainAppPageState extends State<MainAppPage> {
       TrendsPageRedesign(onOpenDrawer: _openDrawer),
       SettingsPageRedesign(onOpenDrawer: _openDrawer),
     ];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeAndCheckNotificationPrompt();
+    });
+  }
+
+  Future<void> _initializeAndCheckNotificationPrompt() async {
+    await _preferencesService.loadPreferences();
+    await _alarmService.initialize();
+
+    if (!mounted) return;
+
+    final systemEnabled = await _alarmService.areNotificationsEnabled();
+    final appEnabled = _preferencesService.notificationsEnabledNotifier.value;
+    if (!mounted || (appEnabled && systemEnabled)) return;
+
+    await _showNotificationPrompt();
+  }
+
+  Future<void> _showNotificationPrompt() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Notifications'),
+        content: const Text(
+          'Notifications are currently off. Turn them on to receive hydration reminders.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final granted = await _alarmService.requestNotificationPermission();
+              await _preferencesService.setNotificationsEnabled(granted);
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openDrawer() {
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  void _navigateToPage(Widget page) {
+  void _navigateToPage({required Widget page}) {
     Navigator.of(context).push(MaterialPageRoute(builder: (context) => page));
   }
 
@@ -80,14 +130,14 @@ class _MainAppPageState extends State<MainAppPage> {
         onSelectIndex: (index) {
           setState(() => _selectedIndex = index);
         },
-        onNavigateToProfile: () => _navigateToPage(const ProfilePage()),
+        onNavigateToProfile: () => _navigateToPage(page: const ProfilePage()),
         onNavigateToIntakeHistory: () =>
-            _navigateToPage(const IntakeHistoryPage()),
+            _navigateToPage(page: const IntakeHistoryPage()),
         onNavigateToOutputHistory: () =>
-            _navigateToPage(const OutputHistoryPage()),
-        onNavigateToReports: () => _navigateToPage(const ReportsPage()),
-        onNavigateToHelp: () => _navigateToPage(const HelpSupportPage()),
-        onNavigateToAbout: () => _navigateToPage(const AboutPage()),
+            _navigateToPage(page: const OutputHistoryPage()),
+        onNavigateToReports: () => _navigateToPage(page: const ReportsPage()),
+        onNavigateToHelp: () => _navigateToPage(page: const HelpSupportPage()),
+        onNavigateToAbout: () => _navigateToPage(page: const AboutPage()),
         onSignOut: _handleSignOut,
       ),
       body: _pages[_selectedIndex],

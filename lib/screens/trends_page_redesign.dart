@@ -6,9 +6,11 @@ import '../services/checkin_service.dart';
 import '../services/schedule_service.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
+import '../services/tutorial_service.dart';
 import '../models/hydration_models.dart';
 import '../theme/app_theme.dart';
 import '../util/volume_utils.dart';
+import '../widgets/page_tutorial_overlay.dart';
 
 class TrendsPageRedesign extends StatefulWidget {
   final VoidCallback? onOpenDrawer;
@@ -25,10 +27,12 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign>
   final _scheduleService = ScheduleService();
   final _authService = AuthService();
   final _userService = UserService();
+  final _tutorialService = TutorialService();
   String _volumeUnit = 'ml';
   int _selectedRange = 7; // 7, 14, or 30 days
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
+  bool _tutorialChecked = false;
 
   @override
   void initState() {
@@ -43,6 +47,56 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign>
       curve: Curves.easeIn,
     );
     _animController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+    });
+  }
+
+  Future<void> _maybeShowTutorial({bool force = false}) async {
+    if (_tutorialChecked && !force) return;
+    if (!force) _tutorialChecked = true;
+
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+
+    final shouldShow = force
+        ? true
+        : await _tutorialService.shouldShowPageTutorial('insights');
+    if (!mounted || !shouldShow) return;
+
+    await _tutorialService.markPageTutorialSeen('insights');
+    if (!mounted) return;
+
+    await showPageTutorialOverlay(
+      context: context,
+      pageTitle: 'Insights',
+      steps: const [
+        TutorialStepItem(
+          title: 'Range Selector',
+          description:
+              'Switch between 7, 14, and 30 days to compare hydration behavior over time.',
+          icon: Icons.date_range,
+        ),
+        TutorialStepItem(
+          title: 'Daily Progress Analytics',
+          description:
+              'Track daily intake, streaks, and performance against your active hydration goal.',
+          icon: Icons.show_chart,
+        ),
+        TutorialStepItem(
+          title: 'Behavior Breakdown',
+          description:
+              'Review beverage types and time-of-day patterns to optimize your routine.',
+          icon: Icons.analytics,
+        ),
+        TutorialStepItem(
+          title: 'Actionable Recommendations',
+          description:
+              'Use recommendations to adjust schedule timing, frequency, and intake amount.',
+          icon: Icons.insights,
+        ),
+      ],
+    );
   }
 
   @override
@@ -502,9 +556,11 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign>
           dailyIntake[dateKey] = intake;
         }
 
-        final maxIntake = dailyIntake.values.isEmpty
+        final rawMaxIntake = dailyIntake.values.isEmpty
             ? 2000.0
             : dailyIntake.values.reduce((a, b) => a > b ? a : b);
+        final maxIntake = rawMaxIntake <= 0 ? 2000.0 : rawMaxIntake;
+        final horizontalInterval = (maxIntake / 4).clamp(1.0, double.infinity);
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -588,7 +644,7 @@ class _TrendsPageRedesignState extends State<TrendsPageRedesign>
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: false,
-                      horizontalInterval: maxIntake / 4,
+                      horizontalInterval: horizontalInterval,
                       getDrawingHorizontalLine: (value) {
                         return FlLine(color: AppColors.border, strokeWidth: 1);
                       },

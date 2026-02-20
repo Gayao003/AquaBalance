@@ -232,7 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                     enabled: !_isLoading,
                     decoration: InputDecoration(
                       hintText: 'Enter your email',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.email_outlined,
                         color: AppColors.textSecondary,
                       ),
@@ -256,7 +256,7 @@ class _LoginPageState extends State<LoginPage> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       hintText: 'Enter your password',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outlined,
                         color: AppColors.textSecondary,
                       ),
@@ -383,7 +383,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: OutlinedButton(
                       onPressed: _isLoading ? null : _handleGoogleLogin,
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.border),
+                        side: BorderSide(color: AppColors.border),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

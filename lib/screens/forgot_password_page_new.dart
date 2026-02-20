@@ -63,7 +63,7 @@ class _ForgotPasswordPageNewState extends State<ForgotPasswordPageNew> {
         backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: widget.onNavigateBack,
         ),
         title: Text(
@@ -221,7 +221,7 @@ class _ForgotPasswordPageNewState extends State<ForgotPasswordPageNew> {
                     enabled: !_isLoading,
                     decoration: InputDecoration(
                       hintText: 'Enter your email address',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.email_outlined,
                         color: AppColors.textSecondary,
                       ),

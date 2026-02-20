@@ -9,11 +9,13 @@ import '../models/hydration_models.dart';
 import '../services/hybrid_sync_service.dart';
 import '../models/io_models.dart';
 import '../services/user_service.dart';
+import '../services/tutorial_service.dart';
 import '../theme/app_theme.dart';
 import 'intake_recording_page.dart';
 import 'schedule_page.dart';
 import '../widgets/hydration_progress_ring.dart';
 import '../widgets/hydration_wave_card.dart';
+import '../widgets/page_tutorial_overlay.dart';
 import '../util/volume_utils.dart';
 
 class HomePageRedesign extends StatefulWidget {
@@ -31,14 +33,66 @@ class _HomePageRedesignState extends State<HomePageRedesign> {
   final _scheduleService = ScheduleService();
   final _checkInService = CheckInService();
   final _userService = UserService();
+  final _tutorialService = TutorialService();
   Stream<List<HydrationCheckIn>>? _checkInsStream;
   String _currentUserId = '';
   String _volumeUnit = 'ml';
+  bool _tutorialChecked = false;
 
   @override
   void initState() {
     super.initState();
     _loadVolumeUnit();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+    });
+  }
+
+  Future<void> _maybeShowTutorial({bool force = false}) async {
+    if (_tutorialChecked && !force) return;
+    if (!force) _tutorialChecked = true;
+
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+
+    final shouldShow = force
+        ? true
+        : await _tutorialService.shouldShowPageTutorial('home');
+    if (!mounted || !shouldShow) return;
+
+    await _tutorialService.markPageTutorialSeen('home');
+    if (!mounted) return;
+
+    await showPageTutorialOverlay(
+      context: context,
+      pageTitle: 'Home',
+      steps: const [
+        TutorialStepItem(
+          title: 'Daily Progress',
+          description:
+              'The top cards summarize your intake, goal progress, and hydration status for today.',
+          icon: Icons.water_drop,
+        ),
+        TutorialStepItem(
+          title: 'Quick Actions',
+          description:
+              'Use quick log buttons and actions to record intake faster throughout the day.',
+          icon: Icons.flash_on,
+        ),
+        TutorialStepItem(
+          title: 'Upcoming Reminders',
+          description:
+              'See what reminders are next and jump to schedule management when needed.',
+          icon: Icons.schedule,
+        ),
+        TutorialStepItem(
+          title: 'Trends & Navigation',
+          description:
+              'Use bottom navigation and drawer shortcuts to access insights, profile, and history pages.',
+          icon: Icons.explore,
+        ),
+      ],
+    );
   }
 
   Stream<List<HydrationCheckIn>> _getCheckInsStream(String userId) {

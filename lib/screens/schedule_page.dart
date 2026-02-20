@@ -3,14 +3,17 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/hydration_models.dart';
 import '../models/health_profile.dart';
 import '../services/alarm_service.dart';
+import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
 import '../services/schedule_service.dart';
 import '../services/template_service.dart';
+import '../services/tutorial_service.dart';
 import '../services/user_service.dart';
 import '../services/health_profile_service.dart';
 import '../services/hydration_recommendation_engine.dart';
 import '../theme/app_theme.dart';
 import '../util/volume_utils.dart';
+import '../widgets/page_tutorial_overlay.dart';
 
 class SchedulePage extends StatefulWidget {
   final VoidCallback? onOpenDrawer;
@@ -23,19 +26,72 @@ class SchedulePage extends StatefulWidget {
 
 class _SchedulePageState extends State<SchedulePage> {
   final _alarmService = AlarmService();
+  final _preferencesService = AppPreferencesService();
   final _scheduleService = ScheduleService();
   final _authService = AuthService();
   final _templateService = TemplateService();
+  final _tutorialService = TutorialService();
   final _userService = UserService();
   final _healthProfileService = HealthProfileService();
   final Set<int> _scheduledIds = {};
   String _volumeUnit = 'ml';
+  bool _tutorialChecked = false;
 
   @override
   void initState() {
     super.initState();
     _loadVolumeUnit();
     _checkHealthProfileAndShowPrompt();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowTutorial();
+    });
+  }
+
+  Future<void> _maybeShowTutorial({bool force = false}) async {
+    if (_tutorialChecked && !force) return;
+    if (!force) _tutorialChecked = true;
+
+    await Future.delayed(const Duration(milliseconds: 220));
+    if (!mounted) return;
+
+    final shouldShow = force
+        ? true
+        : await _tutorialService.shouldShowPageTutorial('schedule');
+    if (!mounted || !shouldShow) return;
+
+    await _tutorialService.markPageTutorialSeen('schedule');
+    if (!mounted) return;
+
+    await showPageTutorialOverlay(
+      context: context,
+      pageTitle: 'Schedule',
+      steps: const [
+        TutorialStepItem(
+          title: 'Recommended Templates',
+          description:
+              'Choose Default, Health-based, or Custom templates to create multiple reminders quickly.',
+          icon: Icons.auto_awesome,
+        ),
+        TutorialStepItem(
+          title: 'Add Reminder',
+          description:
+              'Use the + button to add a custom reminder with time, amount, beverage, and date range.',
+          icon: Icons.add_circle,
+        ),
+        TutorialStepItem(
+          title: 'Smart Recommendations',
+          description:
+              'Inside Add Reminder, personalized suggestions adapt to your profile and health conditions.',
+          icon: Icons.lightbulb,
+        ),
+        TutorialStepItem(
+          title: 'Manage Existing Schedules',
+          description:
+              'Edit, delete, enable/disable, or log liquid directly from each schedule card.',
+          icon: Icons.tune,
+        ),
+      ],
+    );
   }
 
   Future<void> _checkHealthProfileAndShowPrompt() async {
@@ -121,6 +177,10 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   Future<void> _scheduleReminder(HydrationSchedule item) async {
+    if (!_preferencesService.notificationsEnabledNotifier.value) {
+      return;
+    }
+
     if (item.endDate != null && item.endDate!.isBefore(DateTime.now())) {
       return;
     }
@@ -827,11 +887,11 @@ class _SchedulePageState extends State<SchedulePage> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: templates.length + 1,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 240,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.4,
+            mainAxisExtent: 132,
           ),
           itemBuilder: (context, index) {
             if (index == templates.length) {
@@ -849,6 +909,8 @@ class _SchedulePageState extends State<SchedulePage> {
                     children: [
                       Text(
                         'Create template',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -858,6 +920,8 @@ class _SchedulePageState extends State<SchedulePage> {
                       const SizedBox(height: 6),
                       Text(
                         'Save your own schedule set',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -898,6 +962,8 @@ class _SchedulePageState extends State<SchedulePage> {
                         Expanded(
                           child: Text(
                             template.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -929,6 +995,7 @@ class _SchedulePageState extends State<SchedulePage> {
                               const SizedBox(width: 4),
                               Text(
                                 categoryStyle.label,
+                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.poppins(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
@@ -944,6 +1011,8 @@ class _SchedulePageState extends State<SchedulePage> {
                     if (template.times.isNotEmpty)
                       Text(
                         _formatTemplateRange(template),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -1069,6 +1138,8 @@ class _SchedulePageState extends State<SchedulePage> {
               children: [
                 Text(
                   item.label.isEmpty ? 'Hydration reminder' : item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1078,6 +1149,8 @@ class _SchedulePageState extends State<SchedulePage> {
                 const SizedBox(height: 4),
                 Text(
                   '${TimeOfDay(hour: item.hour, minute: item.minute).format(context)} • ${_formatRange(item)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -1086,6 +1159,8 @@ class _SchedulePageState extends State<SchedulePage> {
                 const SizedBox(height: 4),
                 Text(
                   '${item.beverageType} • ${VolumeUtils.format(item.amountMl, _volumeUnit)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -1094,23 +1169,73 @@ class _SchedulePageState extends State<SchedulePage> {
               ],
             ),
           ),
-          Switch(
-            value: item.enabled,
-            onChanged: (value) => _toggleSchedule(item, value),
-            activeColor: AppColors.primary,
-          ),
-          IconButton(
-            icon: const Icon(Icons.local_drink, color: AppColors.primary),
-            tooltip: 'Assign liquid',
-            onPressed: () => _openCheckInSheet(item),
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit, color: AppColors.textSecondary),
-            onPressed: () => _openScheduleSheet(existing: item),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.error),
-            onPressed: () => _deleteSchedule(item),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 30,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Switch(
+                    value: item.enabled,
+                    onChanged: (value) => _toggleSchedule(item, value),
+                    activeColor: AppColors.primary,
+                  ),
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
+                  color: AppColors.textSecondary,
+                ),
+                onSelected: (value) {
+                  if (value == 'assign') {
+                    _openCheckInSheet(item);
+                    return;
+                  }
+                  if (value == 'edit') {
+                    _openScheduleSheet(existing: item);
+                    return;
+                  }
+                  if (value == 'delete') {
+                    _deleteSchedule(item);
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'assign',
+                    child: Row(
+                      children: [
+                        Icon(Icons.local_drink, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Assign liquid'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, color: AppColors.textSecondary),
+                        SizedBox(width: 8),
+                        Text('Edit schedule'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, color: AppColors.error),
+                        SizedBox(width: 8),
+                        Text('Delete schedule'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -1364,7 +1489,7 @@ class _SchedulePageState extends State<SchedulePage> {
                   ),
                   if (!isBuiltIn) ...[
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.edit,
                         color: AppColors.textSecondary,
                       ),
@@ -2277,7 +2402,7 @@ class _SchedulePageState extends State<SchedulePage> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary),
           ],
         ),
       ),

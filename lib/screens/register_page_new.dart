@@ -134,7 +134,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
         backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: widget.onNavigateToLogin,
         ),
         title: Text(
@@ -242,7 +242,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     enabled: !_isLoading,
                     decoration: InputDecoration(
                       hintText: 'Enter your full name',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.person_outline,
                         color: AppColors.textSecondary,
                       ),
@@ -258,7 +258,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     onChanged: (_) => _validateEmail(),
                     decoration: InputDecoration(
                       hintText: 'Enter your email',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.email_outlined,
                         color: AppColors.textSecondary,
                       ),
@@ -292,7 +292,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     enabled: !_isLoading,
                     decoration: InputDecoration(
                       hintText: 'Enter your age',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.cake_outlined,
                         color: AppColors.textSecondary,
                       ),
@@ -309,7 +309,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       hintText: 'Password',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outlined,
                         color: AppColors.textSecondary,
                       ),
@@ -336,7 +336,7 @@ class _RegisterPageNewState extends State<RegisterPageNew> {
                     obscureText: _obscureConfirmPassword,
                     decoration: InputDecoration(
                       hintText: 'Confirm Password',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.lock_outlined,
                         color: AppColors.textSecondary,
                       ),

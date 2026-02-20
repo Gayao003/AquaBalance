@@ -7,6 +7,8 @@ class UserProfile {
   final double? weightKg;
   final double? heightCm;
   final String volumeUnit;
+  final bool enableNotifications;
+  final bool darkMode;
   final DateTime createdAt;
   final DateTime lastUpdated;
 
@@ -19,6 +21,8 @@ class UserProfile {
     this.weightKg,
     this.heightCm,
     this.volumeUnit = 'ml',
+    this.enableNotifications = true,
+    this.darkMode = false,
     required this.createdAt,
     required this.lastUpdated,
   });
@@ -33,6 +37,8 @@ class UserProfile {
       'weightKg': weightKg,
       'heightCm': heightCm,
       'volumeUnit': volumeUnit,
+      'enableNotifications': enableNotifications,
+      'darkMode': darkMode,
       'createdAt': createdAt.toIso8601String(),
       'lastUpdated': lastUpdated.toIso8601String(),
     };
@@ -65,6 +71,8 @@ class UserProfile {
                 ? heightValue.toDouble()
                 : double.tryParse(heightValue.toString())),
       volumeUnit: json['volumeUnit']?.toString() ?? 'ml',
+      enableNotifications: json['enableNotifications'] == false ? false : true,
+      darkMode: json['darkMode'] == true,
       createdAt: DateTime.parse(json['createdAt']),
       lastUpdated: DateTime.parse(json['lastUpdated']),
     );

@@ -103,6 +103,57 @@ class AlarmService {
     _initialized = true;
   }
 
+  Future<bool> areNotificationsEnabled() async {
+    if (!_initialized) {
+      await initialize();
+    }
+
+    if (Platform.isAndroid) {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (androidPlugin == null) return false;
+      final enabled = await androidPlugin.areNotificationsEnabled();
+      return enabled == true;
+    }
+
+    return true;
+  }
+
+  Future<bool> requestNotificationPermission() async {
+    if (!_initialized) {
+      await initialize();
+    }
+
+    if (Platform.isAndroid) {
+      final androidPlugin = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (androidPlugin == null) return false;
+
+      final granted = await androidPlugin.requestNotificationsPermission();
+      final enabled = await androidPlugin.areNotificationsEnabled();
+      return granted == true || enabled == true;
+    }
+
+    final iosPlugin = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    if (iosPlugin != null) {
+      final granted = await iosPlugin.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return granted == true;
+    }
+
+    return true;
+  }
+
   Future<void> _handleNotificationResponse(
     NotificationResponse response,
   ) async {
